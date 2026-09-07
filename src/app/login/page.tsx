@@ -29,18 +29,46 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // Login menggunakan Auth.js
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
 
+      // Login gagal
       if (!result?.ok) {
         setError("Email atau password salah.");
         return;
       }
 
-      router.push("/dashboard");
+      // Cek apakah user sudah menyelesaikan onboarding
+      const onboardingResponse = await fetch(
+        "/api/onboarding/status",
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      const onboardingData = await onboardingResponse.json();
+
+      if (!onboardingResponse.ok) {
+        setError(
+          onboardingData.message ??
+            "Gagal mengecek status onboarding."
+        );
+        return;
+      }
+
+      // User sudah selesai onboarding
+      if (onboardingData.onboardingCompleted) {
+        router.push("/dashboard");
+      } else {
+        // User belum selesai onboarding
+        router.push("/onboarding");
+      }
+
       router.refresh();
     } catch (error) {
       console.error("Login error:", error);
