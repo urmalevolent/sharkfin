@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -11,13 +12,19 @@ export default async function DashboardPage() {
   return (
     <main className="min-h-screen p-8">
       <div className="mx-auto max-w-5xl">
-        <h1 className="text-3xl font-bold">
-          Selamat datang, {session.user.name} 👋
-        </h1>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">
+              Selamat datang, {session.user.name} 👋
+            </h1>
 
-        <p className="mt-2 text-muted-foreground">
-          Kamu berhasil login ke SharkFin.
-        </p>
+            <p className="mt-2 text-muted-foreground">
+              Kamu berhasil login ke SharkFin.
+            </p>
+          </div>
+
+          <LogoutButton />
+        </div>
 
         <div className="mt-8 rounded-lg border p-6">
           <h2 className="font-semibold">
