@@ -1,0 +1,220 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WalletType {
+  CASH
+  BANK
+  E_WALLET
+  SAVINGS
+  OTHER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum IncomeFrequency {
+  WEEKLY
+  MONTHLY
+  IRREGULAR
+}
+
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum ScheduledExpenseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum InsightSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum InsightType {
+  SPENDING
+  BUDGET
+  GOAL
+  CASHFLOW
+  UPCOMING_EXPENSE
+  GENERAL
+}
+
+model User {
+  id               String           @id @default(cuid())
+  name             String
+  email            String           @unique
+  passwordHash     String
+  incomeAmount     BigInt?
+  incomeFrequency  IncomeFrequency?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  wallets          Wallet[]
+  transactions     Transaction[]
+  categories       Category[]
+  budgets          Budget[]
+  goals            Goal[]
+  scheduledExpenses ScheduledExpense[]
+  aiInsights       AiInsight[]
+}
+
+model Wallet {
+  id                    String            @id @default(cuid())
+  userId                String
+  name                  String
+  type                  WalletType
+  balance               BigInt            @default(0)
+  isActive              Boolean           @default(true)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions          Transaction[]     @relation("TransactionWallet")
+  transfersFrom         Transaction[]     @relation("TransferFromWallet")
+  transfersTo           Transaction[]     @relation("TransferToWallet")
+  goals                 Goal[]
+  scheduledExpenses     ScheduledExpense[]
+
+  @@index([userId])
+}
+
+model Category {
+  id             String          @id @default(cuid())
+  userId         String?
+  name           String
+  type           CategoryType
+  icon           String?
+  isDefault      Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  user           User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+  budgets        Budget[]
+
+  @@index([userId])
+}
+
+model Transaction {
+  id                    String             @id @default(cuid())
+  userId                String
+  type                  TransactionType
+  walletId              String?
+  fromWalletId          String?
+  toWalletId            String?
+  categoryId            String?
+  amount                BigInt
+  transactionDate       DateTime
+  description           String?
+  scheduledExpenseId    String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet                Wallet?            @relation("TransactionWallet", fields: [walletId], references: [id], onDelete: Restrict)
+  fromWallet            Wallet?            @relation("TransferFromWallet", fields: [fromWalletId], references: [id], onDelete: Restrict)
+  toWallet              Wallet?            @relation("TransferToWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
+  category              Category?          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  scheduledExpense      ScheduledExpense?  @relation(fields: [scheduledExpenseId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([categoryId])
+  @@index([transactionDate])
+}
+
+model Budget {
+  id             String       @id @default(cuid())
+  userId         String
+  categoryId     String
+  month          Int
+  year           Int
+  amount         BigInt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, categoryId, month, year])
+  @@index([userId])
+}
+
+model Goal {
+  id             String       @id @default(cuid())
+  userId         String
+  walletId       String?
+  name           String
+  targetAmount   BigInt
+  deadline       DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet         Wallet?      @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([walletId])
+}
+
+model ScheduledExpense {
+  id             String                   @id @default(cuid())
+  userId         String
+  walletId       String
+  name           String
+  amount         BigInt
+  nextDate       DateTime
+  recurrence     RecurrenceType
+  status         ScheduledExpenseStatus  @default(PENDING)
+  isActive       Boolean                  @default(true)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  user           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet         Wallet                   @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  transactions   Transaction[]
+
+  @@index([userId])
+  @@index([nextDate])
+}
+
+model AiInsight {
+  id             String           @id @default(cuid())
+  userId         String
+  type           InsightType
+  severity       InsightSeverity
+  title          String
+  message        String
+  metadata       Json?
+  isRead         Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  expiresAt      DateTime?
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
