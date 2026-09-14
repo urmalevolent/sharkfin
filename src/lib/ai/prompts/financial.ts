@@ -2,270 +2,217 @@ import type {
   AIContext,
 } from "@/lib/ai/context";
 
-function formatRupiah(
-  amount: number,
-): string {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    },
-  ).format(amount);
-}
+import type {
+  AIIntent,
+} from "@/lib/ai/intent";
 
-function formatDate(
-  date: string | null,
-): string {
-  if (!date) {
-    return "Tidak ada";
-  }
+import type {
+  AffordabilityResult,
+} from "@/lib/financial-engine";
 
-  return new Intl.DateTimeFormat(
-    "id-ID",
-    {
-      dateStyle: "medium",
+type FinancialPromptOptions = {
+  intent?: AIIntent;
+
+  confidence?: number;
+
+  selectedContext?: Partial<AIContext>;
+
+  affordability?:
+    | AffordabilityResult
+    | undefined;
+};
+
+function serializeForAI(
+  value: unknown,
+): string {
+  return JSON.stringify(
+    value,
+    (_key, currentValue) => {
+      if (
+        typeof currentValue ===
+        "bigint"
+      ) {
+        return currentValue.toString();
+      }
+
+      if (
+        currentValue instanceof Date
+      ) {
+        return currentValue.toISOString();
+      }
+
+      return currentValue;
     },
-  ).format(new Date(date));
+    2,
+  );
 }
 
 export function buildFinancialPrompt(
   context: AIContext,
-  userQuestion: string,
-): string {
-  const topCategories =
-    context.spending.topCategories.length > 0
-      ? context.spending.topCategories
-          .map(
-            (category, index) =>
-              `${index + 1}. ${category.categoryName}: ${formatRupiah(category.amount)} (${category.percentage}%)`,
-          )
-          .join("\n")
-      : "Belum ada data pengeluaran.";
+  question: string,
+  conversationHistory?: string,
+  options?: FinancialPromptOptions,
+) {
+  const selectedContext =
+    options?.selectedContext ??
+    context;
 
-  const budgets =
-    context.budget.budgets.length > 0
-      ? context.budget.budgets
-          .map(
-            (budget) =>
-              `- ${budget.categoryName}: ${formatRupiah(budget.spent)} / ${formatRupiah(budget.budgetAmount)} (${budget.usage}%, status ${budget.status})`,
-          )
-          .join("\n")
-      : "Belum ada budget.";
+  const intent =
+    options?.intent ??
+    "GENERAL";
 
-  const goals =
-    context.goals.goals.length > 0
-      ? context.goals.goals
-          .map(
-            (goal) =>
-              `- ${goal.name}: ${formatRupiah(goal.currentAmount)} / ${formatRupiah(goal.targetAmount)} (${goal.progress}%), sisa ${formatRupiah(goal.remaining)}, target ${formatDate(goal.deadline)}, kebutuhan tabungan bulanan ${formatRupiah(goal.requiredMonthlySaving)}`,
-          )
-          .join("\n")
-      : "Belum ada financial goal.";
+  const confidence =
+    options?.confidence ??
+    0;
 
-  const upcoming =
-    context.obligations.upcoming.length > 0
-      ? context.obligations.upcoming
-          .map(
-            (obligation) =>
-              `- ${obligation.name}: ${formatRupiah(obligation.amount)} pada ${formatDate(obligation.nextDate)}`,
-          )
-          .join("\n")
-      : "Tidak ada kewajiban terjadwal.";
+  const affordability =
+    options?.affordability;
 
-  const insights =
-    context.insights.length > 0
-      ? context.insights
-          .map(
-            (insight) =>
-              `- [${insight.severity}] ${insight.title}: ${insight.message}`,
-          )
-          .join("\n")
-      : "Tidak ada insight penting saat ini.";
+  const history =
+    conversationHistory?.trim() ||
+    "Belum ada percakapan sebelumnya.";
+
+  const affordabilitySection =
+    affordability
+      ? serializeForAI(
+          affordability,
+        )
+      : "Tidak ada analisis affordability untuk pertanyaan ini.";
 
   return `
-DATA KEUANGAN PENGGUNA
+Kamu adalah SharkFin, AI financial assistant
+yang membantu user memahami kondisi keuangannya.
 
-Nama:
-${context.user.name}
+Gunakan data finansial yang diberikan sebagai
+sumber utama untuk melakukan analisis.
 
-====================
-SALDO
-====================
+Jangan membuat angka finansial yang tidak ada
+di dalam context.
 
-Total Balance:
-${formatRupiah(context.balance.total)}
+==================================================
+CONVERSATION HISTORY
+==================================================
 
-Available Balance:
-${formatRupiah(context.obligations.availableBalance)}
+${history}
 
-====================
-CASHFLOW
-====================
+==================================================
+USER INTENT
+==================================================
 
-Income bulan ini:
-${formatRupiah(context.cashflow.income)}
+Intent:
+${intent}
 
-Expense bulan ini:
-${formatRupiah(context.cashflow.expense)}
+Confidence:
+${confidence}
 
-Net Cashflow:
-${formatRupiah(context.cashflow.netCashflow)}
+Gunakan intent ini sebagai petunjuk untuk
+memahami tujuan pertanyaan user.
 
-Saving Rate:
-${
-  context.cashflow.savingRate !== null
-    ? `${context.cashflow.savingRate}%`
-    : "Belum dapat dihitung"
-}
+==================================================
+RELEVANT FINANCIAL CONTEXT
+==================================================
 
-====================
-SPENDING
-====================
+${serializeForAI(selectedContext)}
 
-Total Spending:
-${formatRupiah(context.spending.total)}
+==================================================
+AFFORDABILITY ANALYSIS
+==================================================
 
-Rata-rata pengeluaran per hari:
-${formatRupiah(context.spending.averageDaily)}
+${affordabilitySection}
 
-Jumlah transaksi:
-${context.spending.transactionCount}
+Jika terdapat affordability analysis,
+anggap hasil perhitungannya sebagai hasil
+deterministic Financial Engine.
 
-Top Spending Categories:
-${topCategories}
+Jangan menghitung ulang hasil affordability
+dengan cara yang berbeda.
 
-Trend:
-- Current: ${formatRupiah(context.spending.trend.current)}
-- Previous: ${formatRupiah(context.spending.trend.previous)}
-- Perubahan: ${
-    context.spending.trend.changePercentage !== null
-      ? `${context.spending.trend.changePercentage}%`
-      : "Belum tersedia"
-  }
-- Direction: ${context.spending.trend.direction}
+Gunakan hasil tersebut untuk menjelaskan
+kepada user.
 
-====================
-BUDGET
-====================
+==================================================
+USER QUESTION
+==================================================
 
-Total Budget:
-${formatRupiah(context.budget.totalBudget)}
+${question}
 
-Total Terpakai:
-${formatRupiah(context.budget.totalSpent)}
+==================================================
+INSTRUCTIONS
+==================================================
 
-Total Tersisa:
-${formatRupiah(context.budget.totalRemaining)}
+Jawab dalam bahasa Indonesia yang natural,
+jelas, dan mudah dipahami.
 
-Budget:
-${budgets}
+Prioritaskan jawaban yang relevan dengan
+pertanyaan user.
 
-====================
-FINANCIAL GOALS
-====================
+Jangan membanjiri user dengan seluruh data
+finansial jika tidak diperlukan.
 
-Total Goals:
-${context.goals.totalGoals}
+Jika user bertanya tentang saldo:
+jelaskan saldo yang relevan.
 
-Goal Aktif:
-${context.goals.activeGoals}
+Jika user bertanya tentang pengeluaran:
+gunakan spending dan cashflow.
 
-Goal Selesai:
-${context.goals.completedGoals}
+Jika user bertanya tentang budget:
+gunakan budget dan spending.
 
-Goals:
-${goals}
+Jika user bertanya tentang financial goal:
+gunakan goals, balance, dan cashflow.
 
-====================
-KEWAJIBAN TERJADWAL
-====================
+Jika user bertanya tentang kewajiban:
+gunakan obligations dan forecast.
 
-Total Upcoming:
-${formatRupiah(context.obligations.totalUpcoming)}
+Jika user bertanya apakah mampu membeli sesuatu:
+gunakan hasil affordability analysis jika tersedia.
 
-Jumlah kewajiban:
-${context.obligations.obligationCount}
+Untuk pertanyaan affordability, jelaskan
+secara sederhana:
 
-Upcoming:
-${upcoming}
+1. Kondisi pembelian
+2. Faktor yang memengaruhinya
+3. Risiko atau konsekuensi
+4. Saran yang seimbang
 
-====================
-FORECAST
-====================
+Jangan mengatakan user "boros", "buruk mengatur
+uang", atau bahasa yang menghakimi.
 
-Current Balance:
-${formatRupiah(context.forecast.currentBalance)}
+Jangan memberikan jaminan keuntungan investasi.
 
-Upcoming Obligations:
-${formatRupiah(context.forecast.upcomingObligations)}
+Untuk investasi, saham, crypto, atau instrumen
+keuangan berisiko, berikan informasi, konteks,
+risiko, dan beberapa pertimbangan. Jangan
+bertindak seolah-olah sebagai penasihat
+keuangan berlisensi.
 
-Available Balance:
-${formatRupiah(context.forecast.availableBalance)}
+Jika data tidak cukup untuk menjawab dengan
+akurat, katakan bahwa data belum cukup dan
+jelaskan data apa yang diperlukan.
 
-Current Spending:
-${formatRupiah(context.forecast.spending)}
+Jangan mengubah wallet, transaction, budget,
+goal, atau data finansial lainnya secara otomatis.
 
-Rata-rata Daily Spending:
-${formatRupiah(context.forecast.averageDailySpending)}
+Kamu adalah decision-support assistant,
+bukan autonomous financial decision maker.
 
-Projected Remaining Spending:
-${formatRupiah(context.forecast.projectedRemainingSpending)}
+==================================================
+RESPONSE STYLE
+==================================================
 
-Estimated End Balance:
-${formatRupiah(context.forecast.estimatedEndBalance)}
+Gunakan struktur jika relevan:
 
-Sisa hari periode:
-${context.forecast.remainingDays}
+Observasi
+→ Penjelasan
+→ Rekomendasi
 
-====================
-FINANCIAL HEALTH
-====================
+Tidak semua jawaban harus memakai heading.
 
-Overall:
-${context.financialHealth.overallStatus}
+Hindari jawaban terlalu panjang jika pertanyaan
+user sederhana.
 
-Cashflow:
-${context.financialHealth.cashflow.status}
+Jangan mengulang pertanyaan user.
 
-Saving:
-${context.financialHealth.saving.status}
-
-Budget:
-${context.financialHealth.budget.status}
-
-Goals:
-${context.financialHealth.goals.status}
-
-Obligations:
-${context.financialHealth.obligations.status}
-
-====================
-SHARKFIN INSIGHTS
-====================
-
-${insights}
-
-====================
-PERTANYAAN USER
-====================
-
-${userQuestion}
-
-====================
-INSTRUKSI JAWABAN
-====================
-
-Jawab pertanyaan user berdasarkan data finansial di atas.
-
-Jangan mengarang data.
-
-Jika pertanyaan membutuhkan keputusan finansial, jelaskan
-pertimbangan utama sebelum memberikan rekomendasi.
-
-Jika data tidak cukup, katakan data apa yang masih dibutuhkan.
-
-Jawaban harus relevan dengan kondisi finansial pengguna saat ini.
+Jawab langsung dan fokus.
 `;
 }

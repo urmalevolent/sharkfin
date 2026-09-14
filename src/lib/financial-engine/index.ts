@@ -1,20 +1,37 @@
 import { getTotalBalance } from "./balance";
+
 import { getCashflow } from "./cashflow";
+
 import {
   getSpending,
   getSpendingTrend,
 } from "./spending";
+
 import { getBudgetMetrics } from "./budget";
+
 import { getGoalMetrics } from "./goal";
+
 import {
   getObligationMetrics,
 } from "./obligations";
+
 import {
   getForecastMetrics,
 } from "./forecast";
+
 import {
   getFinancialHealth,
 } from "./health";
+
+import {
+  calculateAffordability,
+} from "./affordability";
+
+export type {
+  AffordabilityStatus,
+  AffordabilityInput,
+  AffordabilityResult,
+} from "./affordability";
 
 export {
   getTotalBalance,
@@ -26,4 +43,5 @@ export {
   getObligationMetrics,
   getForecastMetrics,
   getFinancialHealth,
+  calculateAffordability,
 };

@@ -8,6 +8,7 @@ import {
   getSpendingTrend,
   getTotalBalance,
   getFinancialHealth,
+  calculateAffordability,
 } from "@/lib/financial-engine";
 
 function getCurrentMonthPeriod() {
@@ -243,5 +244,141 @@ export async function getFinancialOverview(
       obligations:
         financialHealth.obligations,
     },
+  };
+}
+
+/**
+ * Analyze whether a requested purchase
+ * is financially reasonable for the user.
+ *
+ * This calculation is deterministic.
+ * It does not use the LLM.
+ */
+export async function getAffordabilityAnalysis(
+  userId: string,
+  purchaseAmount: bigint,
+) {
+  if (purchaseAmount <= BigInt(0)) {
+    throw new Error(
+      "Nominal pembelian harus lebih besar dari 0.",
+    );
+  }
+
+  const period =
+    getCurrentMonthPeriod();
+
+  const [
+    totalBalance,
+    obligations,
+    forecast,
+    goals,
+  ] = await Promise.all([
+    getTotalBalance(userId),
+
+    getObligationMetrics(userId),
+
+    getForecastMetrics(
+      userId,
+      period,
+    ),
+
+    getGoalMetrics(userId),
+  ]);
+
+  /*
+   * Forecast already calculates projected
+   * spending based on the user's spending pattern.
+   *
+   * Therefore we reuse it instead of creating
+   * another spending prediction system.
+   */
+  const expectedSpending =
+    forecast.projectedRemainingSpending;
+
+  /*
+   * Calculate the monthly saving commitment
+   * required by active goals.
+   *
+   * The entire remaining goal amount is NOT
+   * treated as an obligation.
+   */
+  const goalCommitment =
+    goals.goals.reduce(
+      (
+        total: bigint,
+        goal,
+      ) => {
+        if (
+          goal.completed ||
+          goal.requiredMonthlySaving <=
+            BigInt(0)
+        ) {
+          return total;
+        }
+
+        return (
+          total +
+          goal.requiredMonthlySaving
+        );
+      },
+      BigInt(0),
+    );
+
+  const affordability =
+    calculateAffordability({
+      totalBalance,
+
+      upcomingObligations:
+        obligations.totalUpcoming,
+
+      expectedSpending,
+
+      purchaseAmount,
+
+      goalCommitment,
+    });
+
+  return {
+    ...affordability,
+
+    forecast: {
+      estimatedEndBalance:
+        forecast.estimatedEndBalance,
+
+      averageDailySpending:
+        forecast.averageDailySpending,
+
+      projectedRemainingSpending:
+        forecast.projectedRemainingSpending,
+
+      remainingDays:
+        forecast.remainingDays,
+    },
+
+    goals: goals.goals.map(
+      (goal) => ({
+        id: goal.id,
+
+        name: goal.name,
+
+        targetAmount:
+          goal.targetAmount,
+
+        currentAmount:
+          goal.currentAmount,
+
+        remaining:
+          goal.remaining,
+
+        progress:
+          goal.progress,
+
+        requiredMonthlySaving:
+          goal.requiredMonthlySaving,
+
+        completed:
+          goal.completed,
+      }),
+    ),
   };
 }

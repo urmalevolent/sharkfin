@@ -1,11 +1,16 @@
 import OpenAI from "openai";
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error(
-    "OPENAI_API_KEY belum dikonfigurasi.",
-  );
-}
+export function getOpenAIClient() {
+  const apiKey =
+    process.env.OPENAI_API_KEY;
 
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+  if (!apiKey) {
+    throw new Error(
+      "OPENAI_API_KEY belum dikonfigurasi.",
+    );
+  }
+
+  return new OpenAI({
+    apiKey,
+  });
+}

@@ -1,25 +1,72 @@
 import { auth } from "@/auth";
-import { NextResponse } from "next/server";
 
 import {
-  getAIContext,
-} from "@/services/ai-context.service";
+  NextResponse,
+} from "next/server";
 
 import {
-  generateFinancialResponse,
-} from "@/services/llm.service";
+  processAIChat,
+} from "@/services/ai-chat.service";
+
+/**
+ * Convert every BigInt inside an object
+ * into a string so it can safely be returned
+ * through JSON.
+ */
+function serializeBigInt(
+  value: unknown,
+): unknown {
+  if (
+    typeof value === "bigint"
+  ) {
+    return value.toString();
+  }
+
+  if (
+    Array.isArray(value)
+  ) {
+    return value.map(
+      serializeBigInt,
+    );
+  }
+
+  if (
+    value !== null &&
+    typeof value === "object"
+  ) {
+    return Object.fromEntries(
+      Object.entries(
+        value as Record<
+          string,
+          unknown
+        >
+      ).map(
+        ([key, currentValue]) => [
+          key,
+          serializeBigInt(
+            currentValue,
+          ),
+        ],
+      ),
+    );
+  }
+
+  return value;
+}
 
 export async function POST(
   request: Request,
 ) {
   try {
-    const session = await auth();
+    const session =
+      await auth();
 
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         {
+          success: false,
           message:
-            "Unauthorized",
+            "Unauthorized.",
         },
         {
           status: 401,
@@ -31,13 +78,21 @@ export async function POST(
       await request.json();
 
     const question =
-      typeof body.question === "string"
-        ? body.question.trim()
+      typeof body.question ===
+      "string"
+        ? body.question
         : "";
 
-    if (!question) {
+    const conversationId =
+      typeof body.conversationId ===
+      "string"
+        ? body.conversationId
+        : undefined;
+
+    if (!question.trim()) {
       return NextResponse.json(
         {
+          success: false,
           message:
             "Pertanyaan tidak boleh kosong.",
         },
@@ -47,56 +102,65 @@ export async function POST(
       );
     }
 
-    if (question.length > 2000) {
-      return NextResponse.json(
-        {
-          message:
-            "Pertanyaan terlalu panjang.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    const context =
-      await getAIContext(
-        session.user.id,
-        {
-          name:
-            session.user.name ??
-            "User",
-        },
-      );
-
     const result =
-      await generateFinancialResponse(
-        context,
+      await processAIChat({
+        userId:
+          session.user.id,
+
+        userName:
+          session.user.name ??
+          "User",
+
         question,
-      );
 
-    return NextResponse.json({
-      success: true,
+        conversationId,
+      });
 
-      answer:
-        result.answer,
+    const responseData =
+      serializeBigInt({
+        success: true,
 
-      responseId:
-        result.responseId,
+        conversationId:
+          result.conversationId,
 
-      model:
-        result.model,
-    });
+        answer:
+          result.answer,
+
+        responseId:
+          result.responseId,
+
+        model:
+          result.model,
+
+        intent:
+          result.intent,
+
+        confidence:
+          result.confidence,
+
+        affordability:
+          result.affordability ??
+          null,
+      });
+
+    return NextResponse.json(
+      responseData,
+    );
   } catch (error) {
     console.error(
       "AI Chat Error:",
       error,
     );
 
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Terjadi kesalahan saat memproses pertanyaan.";
+
     return NextResponse.json(
       {
-        message:
-          "Maaf, SharkFin sedang mengalami gangguan. Silakan coba lagi.",
+        success: false,
+        message,
       },
       {
         status: 500,
