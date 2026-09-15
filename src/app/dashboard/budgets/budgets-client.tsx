@@ -132,6 +132,10 @@ export default function BudgetsClient({
   const [error, setError] =
     useState("");
 
+  // ========================================================
+  // LOAD BUDGETS
+  // ========================================================
+
   const loadBudgets = async (
     month: number,
     year: number
@@ -151,13 +155,21 @@ export default function BudgetsClient({
 
       if (!response.ok) {
         throw new Error(
-          data.error ||
+          data.message ||
+            data.error ||
             "Gagal mengambil data budget."
         );
       }
 
-      setBudgets(data.budgets ?? []);
+      // API mengembalikan:
+      // { success: true, data: [...] }
+      setBudgets(data.data ?? []);
     } catch (err) {
+      console.error(
+        "Load budgets error:",
+        err
+      );
+
       setError(
         err instanceof Error
           ? err.message
@@ -167,6 +179,10 @@ export default function BudgetsClient({
       setLoading(false);
     }
   };
+
+  // ========================================================
+  // PERIOD CHANGE
+  // ========================================================
 
   const handlePeriodChange = async (
     month: number,
@@ -178,6 +194,10 @@ export default function BudgetsClient({
     await loadBudgets(month, year);
   };
 
+  // ========================================================
+  // RESET FORM
+  // ========================================================
+
   const resetForm = () => {
     setSelectedCategoryId("");
     setAmount("");
@@ -185,6 +205,10 @@ export default function BudgetsClient({
     setShowForm(false);
     setError("");
   };
+
+  // ========================================================
+  // SUBMIT
+  // ========================================================
 
   const handleSubmit = async (
     event: React.FormEvent
@@ -236,18 +260,27 @@ export default function BudgetsClient({
 
       if (!response.ok) {
         throw new Error(
-          data.error ||
+          data.message ||
+            data.error ||
             "Gagal menyimpan budget."
         );
       }
 
+      // Tutup dan reset form
       resetForm();
 
+      // Ambil ulang data budget berdasarkan
+      // periode yang sedang dipilih.
       await loadBudgets(
         selectedMonth,
         selectedYear
       );
     } catch (err) {
+      console.error(
+        "Submit budget error:",
+        err
+      );
+
       setError(
         err instanceof Error
           ? err.message
@@ -255,6 +288,10 @@ export default function BudgetsClient({
       );
     }
   };
+
+  // ========================================================
+  // DELETE
+  // ========================================================
 
   const handleDelete = async (
     budgetId: string
@@ -281,7 +318,8 @@ export default function BudgetsClient({
 
       if (!response.ok) {
         throw new Error(
-          data.error ||
+          data.message ||
+            data.error ||
             "Gagal menghapus budget."
         );
       }
@@ -291,6 +329,11 @@ export default function BudgetsClient({
         selectedYear
       );
     } catch (err) {
+      console.error(
+        "Delete budget error:",
+        err
+      );
+
       setError(
         err instanceof Error
           ? err.message
@@ -298,6 +341,10 @@ export default function BudgetsClient({
       );
     }
   };
+
+  // ========================================================
+  // EDIT
+  // ========================================================
 
   const handleEdit = (budget: Budget) => {
     setEditingBudget(budget);
@@ -311,6 +358,10 @@ export default function BudgetsClient({
     setShowForm(true);
     setError("");
   };
+
+  // ========================================================
+  // AVAILABLE CATEGORIES
+  // ========================================================
 
   const availableCategories = useMemo(() => {
     if (editingBudget) {
@@ -336,6 +387,10 @@ export default function BudgetsClient({
     budgets,
     editingBudget,
   ]);
+
+  // ========================================================
+  // SUMMARY
+  // ========================================================
 
   const summary = useMemo(() => {
     const totalBudget = budgets.reduce(
@@ -363,6 +418,10 @@ export default function BudgetsClient({
       totalRemaining,
     };
   }, [budgets]);
+
+  // ========================================================
+  // UI
+  // ========================================================
 
   return (
     <main className="min-h-screen p-6">
@@ -520,6 +579,7 @@ export default function BudgetsClient({
 
         {showForm && (
           <div className="rounded-xl border bg-white p-6">
+
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold">
                 {editingBudget
@@ -540,6 +600,7 @@ export default function BudgetsClient({
               onSubmit={handleSubmit}
               className="grid gap-4 md:grid-cols-2"
             >
+
               <div>
                 <label className="mb-1 block text-sm font-medium">
                   Kategori
@@ -601,13 +662,17 @@ export default function BudgetsClient({
               <div className="md:col-span-2">
                 <button
                   type="submit"
-                  className="rounded-lg bg-black px-5 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                  disabled={loading}
+                  className="rounded-lg bg-black px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {editingBudget
-                    ? "Simpan Perubahan"
-                    : "Simpan Budget"}
+                  {loading
+                    ? "Menyimpan..."
+                    : editingBudget
+                      ? "Simpan Perubahan"
+                      : "Simpan Budget"}
                 </button>
               </div>
+
             </form>
           </div>
         )}
@@ -620,6 +685,7 @@ export default function BudgetsClient({
           </div>
         ) : budgets.length === 0 ? (
           <div className="rounded-xl border bg-white p-10 text-center">
+
             <h2 className="font-semibold">
               Belum ada budget
             </h2>
@@ -639,9 +705,11 @@ export default function BudgetsClient({
             >
               + Buat Budget
             </button>
+
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
+
             {budgets.map((budget) => {
               const progress =
                 getProgressWidth(
@@ -653,10 +721,12 @@ export default function BudgetsClient({
                   key={budget.id}
                   className="rounded-xl border bg-white p-5"
                 >
+
                   <div className="flex items-start justify-between gap-4">
 
                     <div>
                       <div className="flex items-center gap-2">
+
                         <span className="text-lg">
                           {budget.category.icon ||
                             "💰"}
@@ -665,6 +735,7 @@ export default function BudgetsClient({
                         <h3 className="font-semibold">
                           {budget.category.name}
                         </h3>
+
                       </div>
 
                       <p className="mt-1 text-sm text-gray-500">
@@ -684,10 +755,13 @@ export default function BudgetsClient({
                         budget.status
                       )}
                     </span>
+
                   </div>
 
                   <div className="mt-5">
+
                     <div className="mb-2 flex justify-between text-sm">
+
                       <span>
                         Terpakai{" "}
                         {formatRupiah(
@@ -701,6 +775,7 @@ export default function BudgetsClient({
                         )}
                         %
                       </span>
+
                     </div>
 
                     <div className="h-2 overflow-hidden rounded-full bg-gray-100">
@@ -711,9 +786,11 @@ export default function BudgetsClient({
                         }}
                       />
                     </div>
+
                   </div>
 
                   <div className="mt-4 flex justify-between text-sm">
+
                     <span className="text-gray-500">
                       Sisa
                     </span>
@@ -723,9 +800,11 @@ export default function BudgetsClient({
                         budget.remaining
                       )}
                     </span>
+
                   </div>
 
                   <div className="mt-5 flex gap-2 border-t pt-4">
+
                     <button
                       type="button"
                       onClick={() =>
@@ -749,10 +828,13 @@ export default function BudgetsClient({
                     >
                       Hapus
                     </button>
+
                   </div>
+
                 </div>
               );
             })}
+
           </div>
         )}
 
