@@ -13,6 +13,7 @@ import {
   Bot,
   Settings,
   X,
+  ChevronRight,
 } from "lucide-react";
 
 type SidebarProps = {
@@ -90,62 +91,98 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* ========================================
+          MOBILE OVERLAY
+      ======================================== */}
       {open && (
         <button
           type="button"
           aria-label="Tutup sidebar"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-[2px] lg:hidden"
         />
       )}
 
+      {/* ========================================
+          SIDEBAR
+      ======================================== */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-background transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
-          open
-            ? "translate-x-0"
-            : "-translate-x-full"
-        }`}
+        className={`
+          fixed inset-y-0 left-0 z-50
+          flex w-[260px] flex-col
+          bg-[#07152F]
+          text-white
+          shadow-2xl shadow-slate-950/20
+          transition-transform duration-300 ease-out
+          lg:static lg:z-auto lg:translate-x-0
+          ${
+            open
+              ? "translate-x-0"
+              : "-translate-x-full"
+          }
+        `}
       >
-        {/* Logo */}
-        <div className="flex h-16 items-center justify-between border-b px-5">
+        {/* ======================================
+            BRAND
+        ====================================== */}
+        <div className="flex h-[76px] shrink-0 items-center justify-between border-b border-white/10 px-5">
           <Link
             href="/dashboard"
             onClick={onClose}
-            className="flex items-center gap-2"
+            className="group flex items-center gap-3"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            {/* Logo */}
+            <div
+              className="
+                flex h-10 w-10 shrink-0 items-center
+                justify-center rounded-xl
+                bg-[#168CFF]
+                shadow-lg shadow-blue-950/30
+                transition-transform duration-200
+                group-hover:scale-105
+              "
+            >
               <span className="text-lg">
                 🦈
               </span>
             </div>
 
-            <div>
-              <p className="font-bold leading-none">
+            {/* Brand Text */}
+            <div className="min-w-0">
+              <p className="text-[17px] font-bold leading-none tracking-tight text-white">
                 SharkFin
               </p>
 
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                Smart Personal Finance
+              <p className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-blue-300">
+                Capital Engine
               </p>
             </div>
           </Link>
 
-          {/* Close Mobile */}
+          {/* Mobile Close */}
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 hover:bg-muted lg:hidden"
             aria-label="Tutup sidebar"
+            className="
+              rounded-lg p-2
+              text-slate-400
+              transition
+              hover:bg-white/10
+              hover:text-white
+              lg:hidden
+            "
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-5">
+        {/* ======================================
+            NAVIGATION
+        ====================================== */}
+        <nav className="flex-1 overflow-y-auto px-3 py-5 scrollbar-thin">
           {/* Main Menu */}
-          <p className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
             Menu
           </p>
 
@@ -159,22 +196,58 @@ export default function Sidebar({
                   key={item.href}
                   href={item.href}
                   onClick={onClose}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
+                  className={`
+                    group flex items-center gap-3
+                    rounded-xl px-3 py-2.5
+                    text-[13px] font-medium
+                    transition-all duration-200
+                    ${
+                      active
+                        ? `
+                          bg-[#0B63E5]
+                          text-white
+                          shadow-md shadow-blue-950/20
+                        `
+                        : `
+                          text-slate-400
+                          hover:bg-white/[0.06]
+                          hover:text-white
+                        `
+                    }
+                  `}
                 >
-                  <Icon className="h-5 w-5 shrink-0" />
+                  <Icon
+                    className={`
+                      h-[18px] w-[18px] shrink-0
+                      transition-colors duration-200
+                      ${
+                        active
+                          ? "text-white"
+                          : "text-slate-500 group-hover:text-slate-300"
+                      }
+                    `}
+                    strokeWidth={active ? 2.2 : 1.8}
+                  />
 
-                  <span>{item.label}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {item.label}
+                  </span>
+
+                  {active && (
+                    <ChevronRight
+                      className="h-3.5 w-3.5 shrink-0 text-white/70"
+                      strokeWidth={2}
+                    />
+                  )}
                 </Link>
               );
             })}
           </div>
 
-          {/* AI Menu */}
-          <p className="mb-2 mt-7 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {/* ====================================
+              AI MENU
+          ==================================== */}
+          <p className="mb-2 mt-7 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
             SharkFin AI
           </p>
 
@@ -188,18 +261,57 @@ export default function Sidebar({
                   key={item.href}
                   href={item.href}
                   onClick={onClose}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
+                  className={`
+                    group flex items-center gap-3
+                    rounded-xl px-3 py-2.5
+                    text-[13px] font-medium
+                    transition-all duration-200
+                    ${
+                      active
+                        ? `
+                          bg-[#0B63E5]
+                          text-white
+                          shadow-md shadow-blue-950/20
+                        `
+                        : `
+                          text-slate-400
+                          hover:bg-white/[0.06]
+                          hover:text-white
+                        `
+                    }
+                  `}
                 >
-                  <Icon className="h-5 w-5 shrink-0" />
+                  <Icon
+                    className={`
+                      h-[18px] w-[18px] shrink-0
+                      transition-colors duration-200
+                      ${
+                        active
+                          ? "text-white"
+                          : "text-slate-500 group-hover:text-slate-300"
+                      }
+                    `}
+                    strokeWidth={active ? 2.2 : 1.8}
+                  />
 
-                  <span>{item.label}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {item.label}
+                  </span>
 
+                  {/* AI Badge */}
                   {item.label === "Ask SharkFin" && (
-                    <span className="ml-auto rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                    <span
+                      className={`
+                        rounded-md px-1.5 py-0.5
+                        text-[9px] font-bold
+                        uppercase tracking-wide
+                        ${
+                          active
+                            ? "bg-white/15 text-white"
+                            : "bg-[#168CFF]/10 text-[#5BAEFF]"
+                        }
+                      `}
+                    >
                       AI
                     </span>
                   )}
@@ -208,8 +320,10 @@ export default function Sidebar({
             })}
           </div>
 
-          {/* Secondary Menu */}
-          <p className="mb-2 mt-7 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {/* ====================================
+              SECONDARY MENU
+          ==================================== */}
+          <p className="mb-2 mt-7 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
             Lainnya
           </p>
 
@@ -223,29 +337,70 @@ export default function Sidebar({
                   key={item.href}
                   href={item.href}
                   onClick={onClose}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
+                  className={`
+                    group flex items-center gap-3
+                    rounded-xl px-3 py-2.5
+                    text-[13px] font-medium
+                    transition-all duration-200
+                    ${
+                      active
+                        ? `
+                          bg-[#0B63E5]
+                          text-white
+                          shadow-md shadow-blue-950/20
+                        `
+                        : `
+                          text-slate-400
+                          hover:bg-white/[0.06]
+                          hover:text-white
+                        `
+                    }
+                  `}
                 >
-                  <Icon className="h-5 w-5 shrink-0" />
+                  <Icon
+                    className={`
+                      h-[18px] w-[18px] shrink-0
+                      transition-colors duration-200
+                      ${
+                        active
+                          ? "text-white"
+                          : "text-slate-500 group-hover:text-slate-300"
+                      }
+                    `}
+                    strokeWidth={active ? 2.2 : 1.8}
+                  />
 
-                  <span>{item.label}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {item.label}
+                  </span>
+
+                  {active && (
+                    <ChevronRight
+                      className="h-3.5 w-3.5 shrink-0 text-white/70"
+                      strokeWidth={2}
+                    />
+                  )}
                 </Link>
               );
             })}
           </div>
         </nav>
 
-        {/* Sidebar Footer */}
-        <div className="border-t px-5 py-4">
-          <p className="text-xs text-muted-foreground">
-            SharkFin
-          </p>
+        {/* ======================================
+            SIDEBAR BRAND FOOTER
+            Nanti bisa dipindahkan ke footer.tsx
+        ====================================== */}
+        <div className="shrink-0 border-t border-white/10 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
 
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Personal Finance Assistant
+            <p className="text-[10px] font-medium text-slate-400">
+              Sistem Aktif
+            </p>
+          </div>
+
+          <p className="mt-1 text-[10px] text-slate-600">
+            SharkFin Personal Finance
           </p>
         </div>
       </aside>

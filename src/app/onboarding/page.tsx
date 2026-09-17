@@ -7,7 +7,6 @@ import OnboardingForm from "./onboarding-form";
 export default async function OnboardingPage() {
   const session = await auth();
 
-  // Belum login
   if (!session?.user?.id) {
     redirect("/login");
   }
@@ -21,12 +20,10 @@ export default async function OnboardingPage() {
     },
   });
 
-  // User tidak ditemukan
   if (!user) {
     redirect("/login");
   }
 
-  // User sudah menyelesaikan onboarding
   if (user.onboardingCompleted) {
     redirect("/dashboard");
   }
