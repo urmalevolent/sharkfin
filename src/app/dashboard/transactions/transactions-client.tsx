@@ -616,7 +616,7 @@ export default function TransactionsClient({
               <button
                 type="button"
                 onClick={openAddModal}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
+                className="inline-flex h-11 items-center justify-center gap-2  rounded-xl bg-[#0d63e8] px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
               >
                 <span className="text-lg leading-none">+</span>
                 Tambah Transaksi

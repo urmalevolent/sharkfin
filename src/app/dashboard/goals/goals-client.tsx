@@ -507,7 +507,7 @@ export default function GoalsClient({
           <button
             type="button"
             onClick={openCreateForm}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 active:scale-[0.98]"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0d63e8] px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 active:scale-[0.98]"
           >
             <Plus className="h-4 w-4" />
             Tambah Goal
@@ -1226,7 +1226,7 @@ export default function GoalsClient({
                   <button
                     type="submit"
                     disabled={loading}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0d63e8] px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {loading ? (
                       <>

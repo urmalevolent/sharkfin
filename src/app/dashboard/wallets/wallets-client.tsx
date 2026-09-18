@@ -473,7 +473,7 @@ export default function WalletsClient({
             <button
               type="button"
               onClick={() => setIsAddOpen(true)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 active:scale-[0.98]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0d63e8] px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 active:scale-[0.98]"
             >
               <Plus className="h-4 w-4" />
               Tambah Wallet
@@ -1074,7 +1074,7 @@ export default function WalletsClient({
                 type="button"
                 onClick={handleEditWallet}
                 disabled={isEditSubmitting}
-                className="h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-11 rounded-xl bg-[#0d63e8] px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isEditSubmitting
                   ? "Menyimpan..."

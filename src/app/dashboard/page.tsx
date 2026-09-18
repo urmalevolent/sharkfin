@@ -324,7 +324,7 @@ export default async function DashboardPage() {
 
             <Link
               href="/dashboard/transactions"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#101827] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a2740] active:scale-[0.98]"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#0d63e8] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a2740] active:scale-[0.98]"
             >
               <span className="text-base leading-none">
                 +

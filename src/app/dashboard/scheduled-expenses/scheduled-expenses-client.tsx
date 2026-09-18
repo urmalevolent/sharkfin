@@ -542,7 +542,7 @@ export default function ScheduledExpensesClient({
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 active:scale-[0.98]"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0d63e8] px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 active:scale-[0.98]"
               >
                 <Plus className="h-4 w-4" />
                 Tambah Pengeluaran
@@ -963,7 +963,7 @@ export default function ScheduledExpensesClient({
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0d63e8] px-5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {saving && (
                       <RefreshCw className="h-4 w-4 animate-spin" />

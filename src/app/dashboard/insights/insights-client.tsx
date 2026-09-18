@@ -498,8 +498,8 @@ function FilterButton({
       onClick={onClick}
       className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all duration-200 ${
         active
-          ? "border-primary bg-primary text-primary-foreground shadow-sm"
-          : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+          ? "border-[#0d63e8] bg-[#0d63e8] text-white shadow-sm hover:bg-[#0b57cc]"
+          : "border-[#0d63e8]/20 bg-[#0d63e8]/5 text-[#0d63e8] hover:border-[#0d63e8] hover:bg-[#0d63e8] hover:text-white"
       }`}
     >
       <span>{children}</span>
@@ -507,8 +507,8 @@ function FilterButton({
       <span
         className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
           active
-            ? "bg-primary-foreground/15 text-primary-foreground"
-            : "bg-muted text-muted-foreground"
+            ? "bg-white/15 text-white"
+            : "bg-[#0d63e8]/10 text-[#0d63e8] group-hover:bg-white/15 group-hover:text-white"
         }`}
       >
         {count}
