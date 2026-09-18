@@ -1,6 +1,19 @@
 "use client";
 
 import {
+  Check,
+  ChevronRight,
+  CircleDollarSign,
+  Clock3,
+  Edit3,
+  Plus,
+  Target,
+  Trash2,
+  TrendingUp,
+  WalletCards,
+  X,
+} from "lucide-react";
+import {
   useMemo,
   useState,
 } from "react";
@@ -43,6 +56,11 @@ type Props = {
   initialGoals: Goal[];
   wallets: Wallet[];
 };
+
+type GoalVisualStatus =
+  | "COMPLETED"
+  | "NEARLY"
+  | "PROGRESS";
 
 function formatRupiah(
   value: string | number
@@ -88,6 +106,65 @@ function getProgressWidth(
   );
 }
 
+function getGoalStatus(
+  goal: Goal
+): GoalVisualStatus {
+  if (goal.completed || goal.progress >= 100) {
+    return "COMPLETED";
+  }
+
+  if (goal.progress >= 75) {
+    return "NEARLY";
+  }
+
+  return "PROGRESS";
+}
+
+function getStatusLabel(
+  status: GoalVisualStatus
+) {
+  switch (status) {
+    case "COMPLETED":
+      return "Selesai";
+
+    case "NEARLY":
+      return "Mendekati Target";
+
+    default:
+      return "Berjalan";
+  }
+}
+
+function getStatusClass(
+  status: GoalVisualStatus
+) {
+  switch (status) {
+    case "COMPLETED":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+
+    case "NEARLY":
+      return "border-blue-200 bg-blue-50 text-blue-700";
+
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-600";
+  }
+}
+
+function getProgressClass(
+  status: GoalVisualStatus
+) {
+  switch (status) {
+    case "COMPLETED":
+      return "bg-emerald-500";
+
+    case "NEARLY":
+      return "bg-blue-600";
+
+    default:
+      return "bg-primary";
+  }
+}
+
 export default function GoalsClient({
   initialGoals,
   wallets,
@@ -103,6 +180,9 @@ export default function GoalsClient({
   const [editingGoal, setEditingGoal] =
     useState<Goal | null>(null);
 
+  const [goalToDelete, setGoalToDelete] =
+    useState<Goal | null>(null);
+
   const [name, setName] =
     useState("");
 
@@ -116,6 +196,9 @@ export default function GoalsClient({
     useState("");
 
   const [loading, setLoading] =
+    useState(false);
+
+  const [deleting, setDeleting] =
     useState(false);
 
   const [error, setError] =
@@ -168,6 +251,16 @@ export default function GoalsClient({
     setError("");
   };
 
+  const openCreateForm = () => {
+    setEditingGoal(null);
+    setName("");
+    setTargetAmount("");
+    setDeadline("");
+    setWalletId("");
+    setError("");
+    setShowForm(true);
+  };
+
   const handleEdit = (
     goal: Goal
   ) => {
@@ -202,6 +295,7 @@ export default function GoalsClient({
     event.preventDefault();
 
     try {
+      setLoading(true);
       setError("");
 
       if (!name.trim()) {
@@ -269,27 +363,36 @@ export default function GoalsClient({
           ? err.message
           : "Terjadi kesalahan."
       );
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDelete = async (
-    goalId: string
+  const openDeleteModal = (
+    goal: Goal
   ) => {
-    const confirmed =
-      window.confirm(
-        "Apakah Anda yakin ingin menghapus goal ini?"
-      );
+    setGoalToDelete(goal);
+    setError("");
+  };
 
-    if (!confirmed) {
+  const closeDeleteModal = () => {
+    if (deleting) return;
+
+    setGoalToDelete(null);
+  };
+
+  const handleDelete = async () => {
+    if (!goalToDelete) {
       return;
     }
 
     try {
+      setDeleting(true);
       setError("");
 
       const response =
         await fetch(
-          `/api/goals/${goalId}`,
+          `/api/goals/${goalToDelete.id}`,
           {
             method: "DELETE",
           }
@@ -305,6 +408,8 @@ export default function GoalsClient({
         );
       }
 
+      setGoalToDelete(null);
+
       await loadGoals();
     } catch (err) {
       setError(
@@ -312,6 +417,8 @@ export default function GoalsClient({
           ? err.message
           : "Terjadi kesalahan."
       );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -342,469 +449,902 @@ export default function GoalsClient({
           goal.completed
       ).length;
 
+    const averageProgress =
+      goals.length > 0
+        ? goals.reduce(
+            (total, goal) =>
+              total +
+              Math.min(
+                Math.max(
+                  goal.progress,
+                  0
+                ),
+                100
+              ),
+            0
+          ) / goals.length
+        : 0;
+
     return {
       totalTarget,
       totalCurrent,
       completed,
+      averageProgress,
     };
   }, [goals]);
 
   return (
-    <main className="min-h-screen p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="min-h-screen bg-muted/20">
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
 
+        {/* ========================================================= */}
         {/* HEADER */}
+        {/* ========================================================= */}
 
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">
-              Financial Goals
-            </h1>
+        <section className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+              <Target className="h-6 w-6 text-primary" />
+            </div>
 
-            <p className="text-sm text-gray-500">
-              Tentukan target keuangan
-              dan pantau progresnya.
-            </p>
+            <div>
+              <p className="text-sm font-medium text-primary">
+                Perencanaan Keuangan
+              </p>
+
+              <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                Financial Goals
+              </h1>
+
+              <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
+                Tentukan target keuangan,
+                hubungkan dengan wallet,
+                dan pantau progresnya.
+              </p>
+            </div>
           </div>
 
           <button
             type="button"
-            onClick={() => {
-              setEditingGoal(null);
-              setName("");
-              setTargetAmount("");
-              setDeadline("");
-              setWalletId("");
-              setShowForm(true);
-              setError("");
-            }}
-            className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            onClick={openCreateForm}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 active:scale-[0.98]"
           >
-            + Tambah Goal
+            <Plus className="h-4 w-4" />
+            Tambah Goal
           </button>
-        </div>
+        </section>
 
+        {/* ========================================================= */}
         {/* ERROR */}
+        {/* ========================================================= */}
 
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
+        {error && !showForm && (
+          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-500" />
+
+            <p>{error}</p>
           </div>
         )}
 
+        {/* ========================================================= */}
         {/* SUMMARY */}
+        {/* ========================================================= */}
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
-          <div className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-gray-500">
+          {/* Total Goal */}
+
+          <div className="rounded-2xl border bg-background p-5 shadow-sm transition hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                <Target className="h-5 w-5 text-primary" />
+              </div>
+
+              <span className="text-xs font-medium text-muted-foreground">
+                Goals
+              </span>
+            </div>
+
+            <p className="mt-5 text-sm text-muted-foreground">
+              Total Goal
+            </p>
+
+            <p className="mt-1 text-2xl font-bold tracking-tight">
+              {goals.length}
+            </p>
+
+            <p className="mt-1 text-xs text-muted-foreground">
+              {summary.completed} goal selesai
+            </p>
+          </div>
+
+          {/* Total Target */}
+
+          <div className="rounded-2xl border bg-background p-5 shadow-sm transition hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50">
+                <CircleDollarSign className="h-5 w-5 text-blue-600" />
+              </div>
+
+              <span className="text-xs font-medium text-muted-foreground">
+                Target
+              </span>
+            </div>
+
+            <p className="mt-5 text-sm text-muted-foreground">
               Total Target
             </p>
 
-            <p className="mt-2 text-xl font-bold">
+            <p className="mt-1 truncate text-xl font-bold tracking-tight sm:text-2xl">
               {formatRupiah(
                 summary.totalTarget
               )}
             </p>
+
+            <p className="mt-1 text-xs text-muted-foreground">
+              Nilai seluruh target
+            </p>
           </div>
 
-          <div className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-gray-500">
+          {/* Total Current */}
+
+          <div className="rounded-2xl border bg-background p-5 shadow-sm transition hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+                <TrendingUp className="h-5 w-5 text-emerald-600" />
+              </div>
+
+              <span className="text-xs font-medium text-muted-foreground">
+                Terkumpul
+              </span>
+            </div>
+
+            <p className="mt-5 text-sm text-muted-foreground">
               Total Terkumpul
             </p>
 
-            <p className="mt-2 text-xl font-bold">
+            <p className="mt-1 truncate text-xl font-bold tracking-tight sm:text-2xl">
               {formatRupiah(
                 summary.totalCurrent
               )}
             </p>
-          </div>
 
-          <div className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-gray-500">
-              Goal Selesai
-            </p>
-
-            <p className="mt-2 text-xl font-bold">
-              {summary.completed}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Dana yang sudah terkumpul
             </p>
           </div>
 
-        </div>
+          {/* Average Progress */}
 
-        {/* FORM */}
-
-        {showForm && (
-          <div className="rounded-xl border bg-white p-6">
-
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">
-                  {editingGoal
-                    ? "Edit Goal"
-                    : "Tambah Goal"}
-                </h2>
-
-                <p className="mt-1 text-xs text-gray-500">
-                  Hubungkan dengan wallet
-                  jika ingin progress
-                  mengikuti saldo wallet.
-                </p>
+          <div className="rounded-2xl border bg-background p-5 shadow-sm transition hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
+                <Clock3 className="h-5 w-5 text-amber-600" />
               </div>
 
-              <button
-                type="button"
-                onClick={resetForm}
-                className="text-sm text-gray-500 hover:text-black"
-              >
-                Batal
-              </button>
+              <span className="text-xs font-medium text-muted-foreground">
+                Progress
+              </span>
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="grid gap-4 md:grid-cols-2"
-            >
+            <p className="mt-5 text-sm text-muted-foreground">
+              Rata-rata Progress
+            </p>
 
-              {/* NAME */}
+            <p className="mt-1 text-2xl font-bold tracking-tight">
+              {summary.averageProgress.toFixed(
+                1
+              )}
+              %
+            </p>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Nama Goal
-                </label>
-
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(event) =>
-                    setName(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Contoh: Laptop"
-                  className="w-full rounded-lg border px-3 py-2"
-                />
-              </div>
-
-              {/* TARGET */}
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Target
-                </label>
-
-                <input
-                  type="number"
-                  min="1"
-                  value={targetAmount}
-                  onChange={(event) =>
-                    setTargetAmount(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Contoh: 12000000"
-                  className="w-full rounded-lg border px-3 py-2"
-                />
-
-                <p className="mt-1 text-xs text-gray-500">
-                  Masukkan angka tanpa
-                  titik atau simbol Rp.
-                </p>
-              </div>
-
-              {/* WALLET */}
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Wallet
-                </label>
-
-                <select
-                  value={walletId}
-                  onChange={(event) =>
-                    setWalletId(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-lg border px-3 py-2"
-                >
-                  <option value="">
-                    Tidak dikaitkan
-                  </option>
-
-                  {wallets.map(
-                    (wallet) => (
-                      <option
-                        key={wallet.id}
-                        value={wallet.id}
-                      >
-                        {wallet.name} —{" "}
-                        {formatRupiah(
-                          wallet.balance
-                        )}
-                      </option>
-                    )
-                  )}
-                </select>
-
-                <p className="mt-1 text-xs text-gray-500">
-                  Progress goal akan
-                  mengikuti saldo wallet.
-                </p>
-              </div>
-
-              {/* DEADLINE */}
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Deadline
-                </label>
-
-                <input
-                  type="date"
-                  value={deadline}
-                  onChange={(event) =>
-                    setDeadline(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-lg border px-3 py-2"
-                />
-
-                <p className="mt-1 text-xs text-gray-500">
-                  Opsional. Digunakan untuk
-                  menghitung kebutuhan
-                  tabungan per bulan.
-                </p>
-              </div>
-
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  className="rounded-lg bg-black px-5 py-2 text-sm font-medium text-white hover:bg-gray-800"
-                >
-                  {editingGoal
-                    ? "Simpan Perubahan"
-                    : "Simpan Goal"}
-                </button>
-              </div>
-
-            </form>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500"
+                style={{
+                  width: `${getProgressWidth(
+                    summary.averageProgress
+                  )}%`,
+                }}
+              />
+            </div>
           </div>
-        )}
+        </section>
 
+        {/* ========================================================= */}
+        {/* GOAL SECTION HEADER */}
+        {/* ========================================================= */}
+
+        <section className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight">
+              Target Kamu
+            </h2>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Pantau perkembangan setiap
+              target keuanganmu.
+            </p>
+          </div>
+
+          {goals.length > 0 && (
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="hidden items-center gap-1 text-sm font-medium text-primary transition hover:opacity-80 sm:flex"
+            >
+              Goal baru
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </section>
+
+        {/* ========================================================= */}
         {/* GOALS */}
+        {/* ========================================================= */}
 
-        {loading ? (
-          <div className="rounded-xl border bg-white p-10 text-center text-sm text-gray-500">
-            Memuat goals...
+        {loading && goals.length === 0 ? (
+          <div className="grid gap-5 lg:grid-cols-2">
+            {[1, 2].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="animate-pulse rounded-2xl border bg-background p-6 shadow-sm"
+                >
+                  <div className="flex justify-between">
+                    <div className="flex gap-3">
+                      <div className="h-11 w-11 rounded-xl bg-muted" />
+
+                      <div>
+                        <div className="h-4 w-32 rounded bg-muted" />
+
+                        <div className="mt-2 h-3 w-24 rounded bg-muted" />
+                      </div>
+                    </div>
+
+                    <div className="h-6 w-20 rounded-full bg-muted" />
+                  </div>
+
+                  <div className="mt-8 h-7 w-40 rounded bg-muted" />
+
+                  <div className="mt-5 h-3 rounded-full bg-muted" />
+
+                  <div className="mt-6 grid grid-cols-2 gap-4">
+                    <div className="h-12 rounded-xl bg-muted" />
+                    <div className="h-12 rounded-xl bg-muted" />
+                  </div>
+                </div>
+              )
+            )}
           </div>
         ) : goals.length === 0 ? (
-          <div className="rounded-xl border bg-white p-10 text-center">
+          /* EMPTY STATE */
 
-            <div className="text-4xl">
-              🎯
+          <div className="rounded-2xl border bg-background px-6 py-14 text-center shadow-sm">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+              <Target className="h-8 w-8 text-primary" />
             </div>
 
-            <h2 className="mt-3 font-semibold">
+            <h2 className="mt-5 text-lg font-bold">
               Belum ada financial goal
             </h2>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Buat target keuangan pertama
-              untuk mulai merencanakan
-              masa depanmu.
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+              Buat target keuangan pertamamu,
+              misalnya laptop, dana darurat,
+              kendaraan, atau liburan.
             </p>
 
             <button
               type="button"
-              onClick={() =>
-                setShowForm(true)
-              }
-              className="mt-4 rounded-lg bg-black px-4 py-2 text-sm text-white"
+              onClick={openCreateForm}
+              className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
             >
-              + Buat Goal
+              <Plus className="h-4 w-4" />
+              Buat Goal Pertama
             </button>
-
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-5 lg:grid-cols-2">
+            {goals.map(
+              (goal) => {
+                const progress =
+                  getProgressWidth(
+                    goal.progress
+                  );
 
-            {goals.map((goal) => {
-              const progress =
-                getProgressWidth(
-                  goal.progress
-                );
+                const status =
+                  getGoalStatus(
+                    goal
+                  );
 
-              return (
-                <div
-                  key={goal.id}
-                  className="rounded-xl border bg-white p-5"
-                >
+                const remainingAmount =
+                  Number(
+                    goal.remaining
+                  );
 
-                  {/* TITLE */}
+                return (
+                  <article
+                    key={goal.id}
+                    className="group rounded-2xl border bg-background p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:p-6"
+                  >
+                    {/* CARD HEADER */}
 
-                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                          <Target className="h-5 w-5 text-primary" />
+                        </div>
 
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">
-                          🎯
-                        </span>
+                        <div className="min-w-0">
+                          <h3 className="truncate text-base font-bold sm:text-lg">
+                            {goal.name}
+                          </h3>
 
-                        <h3 className="font-semibold">
-                          {goal.name}
-                        </h3>
+                          {goal.wallet ? (
+                            <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <WalletCards className="h-3.5 w-3.5" />
+
+                              <span className="truncate">
+                                {goal.wallet.name}
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Tidak terhubung ke wallet
+                            </p>
+                          )}
+                        </div>
                       </div>
 
-                      {goal.wallet && (
-                        <p className="mt-1 text-xs text-gray-500">
-                          Wallet:{" "}
-                          {goal.wallet.name}
+                      <span
+                        className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusClass(
+                          status
+                        )}`}
+                      >
+                        {getStatusLabel(
+                          status
+                        )}
+                      </span>
+                    </div>
+
+                    {/* AMOUNT */}
+
+                    <div className="mt-7 flex items-end justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">
+                          Terkumpul
                         </p>
-                      )}
+
+                        <p className="mt-1 truncate text-2xl font-bold tracking-tight sm:text-3xl">
+                          {formatRupiah(
+                            goal.currentAmount
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <p className="text-xs text-muted-foreground">
+                          Target
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold">
+                          {formatRupiah(
+                            goal.targetAmount
+                          )}
+                        </p>
+                      </div>
                     </div>
 
-                    {goal.completed && (
-                      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-                        Selesai
-                      </span>
-                    )}
+                    {/* PROGRESS */}
 
-                  </div>
+                    <div className="mt-6">
+                      <div className="mb-2.5 flex items-center justify-between gap-4">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Progress
+                        </span>
 
-                  {/* AMOUNT */}
+                        <span className="text-sm font-bold">
+                          {goal.progress.toFixed(
+                            1
+                          )}
+                          %
+                        </span>
+                      </div>
 
-                  <div className="mt-5 flex items-end justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">
-                        Terkumpul
-                      </p>
-
-                      <p className="text-xl font-bold">
-                        {formatRupiah(
-                          goal.currentAmount
-                        )}
-                      </p>
+                      <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${getProgressClass(
+                            status
+                          )}`}
+                          style={{
+                            width: `${progress}%`,
+                          }}
+                        />
+                      </div>
                     </div>
 
-                    <p className="text-sm text-gray-500">
-                      dari{" "}
-                      {formatRupiah(
-                        goal.targetAmount
-                      )}
-                    </p>
-                  </div>
+                    {/* DETAILS */}
 
-                  {/* PROGRESS */}
+                    <div className="mt-6 grid grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-muted/40 p-3.5">
+                        <p className="text-[11px] text-muted-foreground">
+                          Sisa Target
+                        </p>
 
-                  <div className="mt-4">
+                        <p className="mt-1 truncate text-sm font-semibold">
+                          {remainingAmount > 0
+                            ? formatRupiah(
+                                goal.remaining
+                              )
+                            : "Target tercapai"}
+                        </p>
+                      </div>
 
-                    <div className="mb-2 flex justify-between text-sm">
-                      <span>
-                        Progress
-                      </span>
+                      <div className="rounded-xl bg-muted/40 p-3.5">
+                        <p className="text-[11px] text-muted-foreground">
+                          Deadline
+                        </p>
 
-                      <span className="font-medium">
-                        {goal.progress.toFixed(
-                          1
-                        )}
-                        %
-                      </span>
+                        <p className="mt-1 truncate text-sm font-semibold">
+                          {goal.deadline
+                            ? formatDate(
+                                goal.deadline
+                              )
+                            : "Tanpa deadline"}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="h-3 overflow-hidden rounded-full bg-gray-100">
-                      <div
-                        className="h-full rounded-full bg-black transition-all"
-                        style={{
-                          width: `${progress}%`,
-                        }}
-                      />
-                    </div>
-
-                  </div>
-
-                  {/* DETAILS */}
-
-                  <div className="mt-5 space-y-2 border-t pt-4 text-sm">
-
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">
-                        Sisa
-                      </span>
-
-                      <span className="font-medium">
-                        {formatRupiah(
-                          goal.remaining
-                        )}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">
-                        Deadline
-                      </span>
-
-                      <span>
-                        {formatDate(
-                          goal.deadline
-                        )}
-                      </span>
-                    </div>
+                    {/* MONTHLY SAVING */}
 
                     {goal.requiredMonthlySaving !==
                       null && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">
-                          Perlu / bulan
-                        </span>
+                      <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-primary/10 bg-primary/5 p-3.5">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background">
+                            <TrendingUp className="h-4 w-4 text-primary" />
+                          </div>
 
-                        <span className="font-medium">
+                          <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground">
+                              Kebutuhan tabungan / bulan
+                            </p>
+
+                            <p className="mt-0.5 truncate text-sm font-bold">
+                              {formatRupiah(
+                                goal.requiredMonthlySaving
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </div>
+                    )}
+
+                    {/* WALLET INFO */}
+
+                    {goal.wallet && (
+                      <div className="mt-3 flex items-center justify-between gap-3 border-t pt-4">
+                        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                          <WalletCards className="h-4 w-4 shrink-0" />
+
+                          <span className="truncate">
+                            Saldo wallet
+                          </span>
+                        </div>
+
+                        <span className="shrink-0 text-sm font-semibold">
                           {formatRupiah(
-                            goal.requiredMonthlySaving
+                            goal.wallet.balance
                           )}
                         </span>
                       </div>
                     )}
 
+                    {/* ACTIONS */}
+
+                    <div className="mt-5 flex gap-2 border-t pt-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleEdit(
+                            goal
+                          )
+                        }
+                        className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border bg-background px-4 text-sm font-medium transition hover:bg-muted"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openDeleteModal(
+                            goal
+                          )
+                        }
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-background px-4 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="hidden sm:inline">
+                          Hapus
+                        </span>
+                      </button>
+                    </div>
+                  </article>
+                );
+              }
+            )}
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* FORM MODAL */}
+        {/* ========================================================= */}
+
+        {showForm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div
+              className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border bg-background shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="goal-modal-title"
+            >
+              {/* MODAL HEADER */}
+
+              <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b bg-background p-5 sm:p-6">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                    <Target className="h-5 w-5 text-primary" />
                   </div>
 
-                  {/* ACTION */}
-
-                  <div className="mt-5 flex gap-2 border-t pt-4">
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleEdit(goal)
-                      }
-                      className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50"
+                  <div>
+                    <h2
+                      id="goal-modal-title"
+                      className="text-lg font-bold"
                     >
-                      Edit
-                    </button>
+                      {editingGoal
+                        ? "Edit Financial Goal"
+                        : "Tambah Financial Goal"}
+                    </h2>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleDelete(
-                          goal.id
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Atur target dan deadline
+                      untuk membantu merencanakan
+                      keuanganmu.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  disabled={loading}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Tutup"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* MODAL BODY */}
+
+              <form
+                onSubmit={handleSubmit}
+                className="space-y-5 p-5 sm:p-6"
+              >
+                {error && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700">
+                    {error}
+                  </div>
+                )}
+
+                {/* NAME */}
+
+                <div>
+                  <label
+                    htmlFor="goal-name"
+                    className="mb-2 block text-sm font-semibold"
+                  >
+                    Nama Goal
+                  </label>
+
+                  <input
+                    id="goal-name"
+                    type="text"
+                    value={name}
+                    onChange={(event) =>
+                      setName(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Contoh: Laptop"
+                    disabled={loading}
+                    className="h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Gunakan nama yang mudah
+                    kamu kenali.
+                  </p>
+                </div>
+
+                {/* TARGET */}
+
+                <div>
+                  <label
+                    htmlFor="goal-target"
+                    className="mb-2 block text-sm font-semibold"
+                  >
+                    Target Dana
+                  </label>
+
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                      Rp
+                    </span>
+
+                    <input
+                      id="goal-target"
+                      type="number"
+                      min="1"
+                      value={targetAmount}
+                      onChange={(event) =>
+                        setTargetAmount(
+                          event.target.value
                         )
                       }
-                      className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                    >
-                      Hapus
-                    </button>
-
+                      placeholder="12000000"
+                      disabled={loading}
+                      className="h-11 w-full rounded-xl border bg-background pl-10 pr-3.5 text-sm outline-none transition placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    />
                   </div>
 
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Masukkan angka tanpa titik
+                    atau simbol Rp.
+                  </p>
                 </div>
-              );
-            })}
 
+                {/* WALLET */}
+
+                <div>
+                  <label
+                    htmlFor="goal-wallet"
+                    className="mb-2 block text-sm font-semibold"
+                  >
+                    Wallet
+                  </label>
+
+                  <select
+                    id="goal-wallet"
+                    value={walletId}
+                    onChange={(event) =>
+                      setWalletId(
+                        event.target.value
+                      )
+                    }
+                    disabled={loading}
+                    className="h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <option value="">
+                      Tidak dikaitkan
+                    </option>
+
+                    {wallets.map(
+                      (wallet) => (
+                        <option
+                          key={wallet.id}
+                          value={wallet.id}
+                        >
+                          {wallet.name} —{" "}
+                          {formatRupiah(
+                            wallet.balance
+                          )}
+                        </option>
+                      )
+                    )}
+                  </select>
+
+                  <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+                    Jika dikaitkan, progress goal
+                    akan mengikuti saldo wallet
+                    tersebut.
+                  </p>
+                </div>
+
+                {/* DEADLINE */}
+
+                <div>
+                  <label
+                    htmlFor="goal-deadline"
+                    className="mb-2 block text-sm font-semibold"
+                  >
+                    Deadline
+                  </label>
+
+                  <input
+                    id="goal-deadline"
+                    type="date"
+                    value={deadline}
+                    onChange={(event) =>
+                      setDeadline(
+                        event.target.value
+                      )
+                    }
+                    disabled={loading}
+                    className="h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+
+                  <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+                    Opsional. Deadline digunakan
+                    untuk menghitung kebutuhan
+                    tabungan per bulan.
+                  </p>
+                </div>
+
+                {/* PREVIEW */}
+
+                {targetAmount &&
+                  Number(targetAmount) > 0 && (
+                    <div className="rounded-xl border border-primary/10 bg-primary/5 p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background">
+                          <CircleDollarSign className="h-4 w-4 text-primary" />
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Target yang akan dibuat
+                          </p>
+
+                          <p className="mt-0.5 text-base font-bold">
+                            {formatRupiah(
+                              targetAmount
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                {/* ACTION */}
+
+                <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    disabled={loading}
+                    className="h-11 rounded-xl border px-5 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+                        Menyimpan...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4" />
+
+                        {editingGoal
+                          ? "Simpan Perubahan"
+                          : "Simpan Goal"}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* DELETE MODAL */}
+        {/* ========================================================= */}
+
+        {goalToDelete && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div
+              className="w-full max-w-md rounded-2xl border bg-background p-5 shadow-2xl sm:p-6"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-goal-title"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+
+                <div className="min-w-0">
+                  <h2
+                    id="delete-goal-title"
+                    className="text-lg font-bold"
+                  >
+                    Hapus Financial Goal?
+                  </h2>
+
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    Tindakan ini akan menghapus
+                    goal dari daftar perencanaanmu.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-xl border bg-muted/30 p-4">
+                <p className="text-xs text-muted-foreground">
+                  Goal yang akan dihapus
+                </p>
+
+                <p className="mt-1 truncate font-semibold">
+                  {goalToDelete.name}
+                </p>
+
+                <div className="mt-3 flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">
+                    Target
+                  </span>
+
+                  <span className="font-semibold">
+                    {formatRupiah(
+                      goalToDelete.targetAmount
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs leading-5 text-amber-800">
+                Menghapus goal tidak menghapus
+                saldo wallet atau transaksi
+                yang sudah ada.
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={
+                    closeDeleteModal
+                  }
+                  disabled={deleting}
+                  className="h-11 rounded-xl border px-5 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {deleting ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      Menghapus...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      Hapus Goal
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
       </div>
-    </main>
+    </div>
   );
 }

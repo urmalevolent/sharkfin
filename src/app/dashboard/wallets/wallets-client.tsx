@@ -2,6 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Archive,
+  ArrowUpRight,
+  Banknote,
+  Check,
+  ChevronRight,
+  CircleDollarSign,
+  CreditCard,
+  Landmark,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+  Smartphone,
+  Trash2,
+  Wallet as WalletIcon,
+  X,
+} from "lucide-react";
 
 interface Wallet {
   id: string;
@@ -32,6 +51,44 @@ const walletTypeLabels: Record<string, string> = {
   OTHER: "Lainnya",
 };
 
+const getWalletIcon = (type: string) => {
+  switch (type) {
+    case "BANK":
+      return Landmark;
+
+    case "E_WALLET":
+      return Smartphone;
+
+    case "CASH":
+      return Banknote;
+
+    case "SAVINGS":
+      return ShieldCheck;
+
+    default:
+      return WalletIcon;
+  }
+};
+
+const getWalletIconContainer = (type: string) => {
+  switch (type) {
+    case "BANK":
+      return "bg-primary/10 text-primary";
+
+    case "E_WALLET":
+      return "bg-sky-500/10 text-sky-600 dark:text-sky-400";
+
+    case "CASH":
+      return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+
+    case "SAVINGS":
+      return "bg-violet-500/10 text-violet-600 dark:text-violet-400";
+
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+};
+
 export default function WalletsClient({
   wallets,
   totalBalance,
@@ -41,9 +98,9 @@ export default function WalletsClient({
   // =========================
   // ADD WALLET STATE
   // =========================
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [addErrorMessage, setAddErrorMessage] = useState("");
 
   const [name, setName] = useState("");
@@ -53,6 +110,7 @@ export default function WalletsClient({
   // =========================
   // EDIT WALLET STATE
   // =========================
+
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingWallet, setEditingWallet] = useState<Wallet | null>(
     null
@@ -67,29 +125,36 @@ export default function WalletsClient({
   // =========================
   // DEACTIVATE STATE
   // =========================
+
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
   const [deactivatingWallet, setDeactivatingWallet] =
     useState<Wallet | null>(null);
 
   const [deactivateErrorMessage, setDeactivateErrorMessage] =
     useState("");
+
   const [isDeactivateSubmitting, setIsDeactivateSubmitting] =
     useState(false);
 
   // =========================
   // ACTIVATE WALLET STATE
   // =========================
+
   const [isActivateOpen, setIsActivateOpen] = useState(false);
-  const [activatingWallet, setActivatingWallet] = useState<Wallet | null>(
-    null
+  const [activatingWallet, setActivatingWallet] =
+    useState<Wallet | null>(null);
+
+  const [activateErrorMessage, setActivateErrorMessage] = useState(
+    ""
   );
 
-  const [activateErrorMessage, setActivateErrorMessage] = useState("");
-  const [isActivateSubmitting, setIsActivateSubmitting] = useState(false);
+  const [isActivateSubmitting, setIsActivateSubmitting] =
+    useState(false);
 
   // =========================
   // ADD WALLET
   // =========================
+
   const resetAddForm = () => {
     setName("");
     setType("BANK");
@@ -178,12 +243,11 @@ export default function WalletsClient({
   // =========================
   // EDIT WALLET
   // =========================
+
   const handleOpenEdit = (wallet: Wallet) => {
     setEditingWallet(wallet);
-
     setEditName(wallet.name);
     setEditType(wallet.type);
-
     setEditErrorMessage("");
     setIsEditOpen(true);
   };
@@ -195,7 +259,6 @@ export default function WalletsClient({
     setEditName("");
     setEditType("BANK");
     setEditErrorMessage("");
-
     setIsEditOpen(false);
   };
 
@@ -243,7 +306,6 @@ export default function WalletsClient({
       }
 
       handleCloseEdit();
-
       router.refresh();
     } catch (error) {
       console.error("Edit wallet error:", error);
@@ -259,6 +321,7 @@ export default function WalletsClient({
   // =========================
   // DEACTIVATE WALLET
   // =========================
+
   const handleOpenDeactivate = (wallet: Wallet) => {
     setDeactivatingWallet(wallet);
     setDeactivateErrorMessage("");
@@ -297,7 +360,6 @@ export default function WalletsClient({
       }
 
       handleCloseDeactivate();
-
       router.refresh();
     } catch (error) {
       console.error("Deactivate wallet error:", error);
@@ -313,6 +375,7 @@ export default function WalletsClient({
   // =========================
   // ACTIVATE WALLET
   // =========================
+
   const handleOpenActivate = (wallet: Wallet) => {
     setActivatingWallet(wallet);
     setActivateErrorMessage("");
@@ -351,7 +414,6 @@ export default function WalletsClient({
       }
 
       handleCloseActivate();
-
       router.refresh();
     } catch (error) {
       console.error("Activate wallet error:", error);
@@ -364,6 +426,10 @@ export default function WalletsClient({
     }
   };
 
+  // =========================
+  // DERIVED DATA
+  // =========================
+
   const activeWallets = wallets.filter(
     (wallet) => wallet.isActive
   );
@@ -372,127 +438,286 @@ export default function WalletsClient({
     (wallet) => !wallet.isActive
   );
 
+  const totalActiveBalance = activeWallets.reduce(
+    (total, wallet) => total + Number(wallet.balance),
+    0
+  );
+
   return (
     <>
-      <main className="min-h-screen p-6">
-        <div className="mx-auto max-w-6xl">
-          {/* HEADER */}
-          <div className="mb-8 flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">Wallet</h1>
+      <div className="min-h-screen bg-muted/20">
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {/* =========================
+              HEADER
+          ========================= */}
 
-              <p className="mt-1 text-sm text-muted-foreground">
-                Kelola semua sumber uang yang kamu miliki.
+          <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <WalletIcon className="h-4 w-4" />
+                <span>Keuangan</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+                <span className="text-foreground">Wallet</span>
+              </div>
+
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                Wallet
+              </h1>
+
+              <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted-foreground">
+                Kelola semua sumber uang yang kamu miliki dalam satu
+                tempat.
               </p>
             </div>
 
             <button
               type="button"
               onClick={() => setIsAddOpen(true)}
-              className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-black/80"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 active:scale-[0.98]"
             >
-              + Tambah Wallet
+              <Plus className="h-4 w-4" />
+              Tambah Wallet
             </button>
           </div>
 
-          {/* TOTAL BALANCE */}
-          <section className="mb-8 rounded-2xl border bg-card p-6">
-            <p className="text-sm text-muted-foreground">
-              Total Balance
-            </p>
+          {/* =========================
+              BALANCE HERO
+          ========================= */}
 
-            <h2 className="mt-2 text-3xl font-bold">
-              {formatRupiah(totalBalance)}
-            </h2>
+          <section className="relative mb-6 overflow-hidden rounded-3xl border bg-card shadow-sm">
+            <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-primary/5 blur-3xl" />
 
-            <p className="mt-2 text-sm text-muted-foreground">
-              Total saldo dari semua wallet aktif.
-            </p>
+            <div className="relative p-6 sm:p-8">
+              <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <div className="mb-4 flex items-center gap-2">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <CircleDollarSign className="h-5 w-5" />
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Total Balance
+                      </p>
+
+                      <p className="text-xs text-muted-foreground">
+                        Semua wallet aktif
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
+                    {formatRupiah(totalBalance)}
+                  </p>
+
+                  <p className="mt-3 max-w-lg text-sm leading-6 text-muted-foreground">
+                    Total saldo dari seluruh wallet yang sedang
+                    aktif di SharkFin.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-2xl border bg-muted/30 px-4 py-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <Check className="h-4 w-4" />
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      Saldo aktif
+                    </p>
+
+                    <p className="text-sm font-semibold">
+                      {formatRupiah(String(totalActiveBalance))}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
 
-          {/* WALLET LIST */}
+          {/* =========================
+              SUMMARY
+          ========================= */}
+
+          <section className="mb-8 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <WalletIcon className="h-5 w-5" />
+                </div>
+
+                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <p className="mt-5 text-sm text-muted-foreground">
+                Wallet Aktif
+              </p>
+
+              <p className="mt-1 text-2xl font-bold">
+                {activeWallets.length}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <Archive className="h-5 w-5" />
+                </div>
+
+                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <p className="mt-5 text-sm text-muted-foreground">
+                Wallet Nonaktif
+              </p>
+
+              <p className="mt-1 text-2xl font-bold">
+                {inactiveWallets.length}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+
+                <span className="text-xs font-medium text-muted-foreground">
+                  Semua sumber
+                </span>
+              </div>
+
+              <p className="mt-5 text-sm text-muted-foreground">
+                Total Wallet
+              </p>
+
+              <p className="mt-1 text-2xl font-bold">
+                {wallets.length}
+              </p>
+            </div>
+          </section>
+
+          {/* =========================
+              ACTIVE WALLETS
+          ========================= */}
+
           <section>
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">
-                Wallet Saya
-              </h2>
+            <div className="mb-5 flex items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold tracking-tight">
+                  Wallet Aktif
+                </h2>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Sumber uang yang sedang digunakan.
+                </p>
+              </div>
+
+              {activeWallets.length > 0 && (
+                <span className="hidden rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary sm:inline-flex">
+                  {activeWallets.length} wallet
+                </span>
+              )}
             </div>
 
             {activeWallets.length === 0 ? (
-              <div className="rounded-2xl border border-dashed p-10 text-center">
-                <h3 className="font-semibold">
+              <div className="rounded-3xl border border-dashed bg-card p-8 text-center sm:p-12">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <WalletIcon className="h-7 w-7" />
+                </div>
+
+                <h3 className="mt-5 text-lg font-semibold">
                   Belum ada wallet aktif
                 </h3>
 
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Tambahkan wallet pertamamu untuk mulai
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+                  Tambahkan wallet pertamamu seperti rekening
+                  bank, e-wallet, cash, atau tabungan untuk mulai
                   mengelola saldo.
                 </p>
 
                 <button
                   type="button"
                   onClick={() => setIsAddOpen(true)}
-                  className="mt-5 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-black/80"
+                  className="mt-6 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
                 >
-                  + Tambah Wallet
+                  <Plus className="h-4 w-4" />
+                  Tambah Wallet
                 </button>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {activeWallets.map((wallet) => (
-                  <div
-                    key={wallet.id}
-                    className="rounded-2xl border bg-card p-5"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold">
-                          {wallet.name}
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {activeWallets.map((wallet) => {
+                  const Icon = getWalletIcon(wallet.type);
+
+                  return (
+                    <div
+                      key={wallet.id}
+                      className="group rounded-3xl border bg-card p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${getWalletIconContainer(
+                              wallet.type
+                            )}`}
+                          >
+                            <Icon className="h-5 w-5" />
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold">
+                              {wallet.name}
+                            </p>
+
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {walletTypeLabels[wallet.type] ??
+                                wallet.type}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Aktif
+                        </span>
+                      </div>
+
+                      <div className="mt-8">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Saldo
                         </p>
 
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {walletTypeLabels[wallet.type] ??
-                            wallet.type}
+                        <p className="mt-1 break-all text-2xl font-bold tracking-tight">
+                          {formatRupiah(wallet.balance)}
                         </p>
                       </div>
 
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-950 dark:text-green-300">
-                        <span className="h-2 w-2 rounded-full bg-green-500" />
-                        Aktif
-                      </span>
+                      <div className="mt-6 flex gap-2 border-t pt-4">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(wallet)}
+                          className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-xl border bg-background px-3 text-sm font-medium transition hover:bg-muted"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleOpenDeactivate(wallet)
+                          }
+                          className="inline-flex h-9 items-center justify-center rounded-xl border px-3 text-muted-foreground transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-900 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                          title="Nonaktifkan wallet"
+                          aria-label={`Nonaktifkan ${wallet.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-
-                    <div className="mt-6">
-                      <p className="text-xs text-muted-foreground">
-                        Saldo
-                      </p>
-
-                      <p className="mt-1 text-xl font-bold">
-                        {formatRupiah(wallet.balance)}
-                      </p>
-                    </div>
-
-                    <div className="mt-5 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(wallet)}
-                        className="rounded-lg border px-3 py-2 text-sm transition hover:bg-muted"
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleOpenDeactivate(wallet)
-                        }
-                        className="rounded-lg border px-3 py-2 text-sm transition hover:bg-muted"
-                      >
-                        Nonaktifkan
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -500,84 +725,108 @@ export default function WalletsClient({
           {/* =========================
               INACTIVE WALLETS
           ========================= */}
+
           {inactiveWallets.length > 0 && (
             <section className="mt-10">
-              <div className="mb-4">
-                <h2 className="text-lg font-semibold">
-                  Wallet Nonaktif
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Wallet yang dinonaktifkan tetap tersimpan dan dapat
-                  diaktifkan kembali kapan saja.
+              <div className="mb-5">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold tracking-tight">
+                    Wallet Nonaktif
+                  </h2>
+
+                  <span className="rounded-full bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-400">
+                    {inactiveWallets.length}
+                  </span>
+                </div>
+
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Wallet yang dinonaktifkan tetap tersimpan dan
+                  dapat diaktifkan kembali kapan saja.
                 </p>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {inactiveWallets.map((wallet) => (
-                  <div
-                    key={wallet.id}
-                    className="rounded-2xl border border-red-200 bg-red-50/40 p-5 dark:border-red-900 dark:bg-red-950/20"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold">
-                          {wallet.name}
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {inactiveWallets.map((wallet) => {
+                  const Icon = getWalletIcon(wallet.type);
+
+                  return (
+                    <div
+                      key={wallet.id}
+                      className="rounded-3xl border border-red-200/70 bg-red-50/30 p-5 opacity-90 dark:border-red-900/60 dark:bg-red-950/10"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-500/10 text-red-500">
+                            <Icon className="h-5 w-5" />
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold">
+                              {wallet.name}
+                            </p>
+
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {walletTypeLabels[wallet.type] ??
+                                wallet.type}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                          Nonaktif
+                        </span>
+                      </div>
+
+                      <div className="mt-8">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Saldo terakhir
                         </p>
 
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {walletTypeLabels[wallet.type] ??
-                            wallet.type}
+                        <p className="mt-1 break-all text-2xl font-bold tracking-tight text-muted-foreground">
+                          {formatRupiah(wallet.balance)}
                         </p>
                       </div>
 
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
-                        <span className="h-2 w-2 rounded-full bg-red-500" />
-                        Nonaktif
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenActivate(wallet)}
+                        className="mt-6 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-background px-3 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Aktifkan Kembali
+                      </button>
                     </div>
-
-                    <div className="mt-6">
-                      <p className="text-xs text-muted-foreground">
-                        Saldo terakhir
-                      </p>
-
-                      <p className="mt-1 text-xl font-bold text-muted-foreground">
-                        {formatRupiah(wallet.balance)}
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleOpenActivate(wallet)}
-                      className="mt-5 w-full rounded-lg border border-green-300 px-3 py-2 text-sm font-medium text-green-700 transition hover:bg-green-50 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-950/40"
-                    >
-                      Aktifkan Kembali
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           )}
         </div>
-      </main>
+      </div>
 
-      {/* =========================
+      {/* =====================================================
           ADD WALLET MODAL
-      ========================= */}
+      ===================================================== */}
+
       {isAddOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div
-            className="w-full max-w-md rounded-2xl bg-background p-6 shadow-xl"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border bg-background p-6 shadow-2xl sm:p-7"
             role="dialog"
             aria-modal="true"
           >
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Plus className="h-5 w-5" />
+                </div>
+
                 <h2 className="text-xl font-bold">
                   Tambah Wallet
                 </h2>
 
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
                   Tambahkan sumber uang baru ke SharkFin.
                 </p>
               </div>
@@ -586,15 +835,17 @@ export default function WalletsClient({
                 type="button"
                 onClick={handleCloseAdd}
                 disabled={isSubmitting}
-                className="text-xl text-muted-foreground transition hover:text-foreground"
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                aria-label="Tutup"
               >
-                ×
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             {addErrorMessage && (
-              <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {addErrorMessage}
+              <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                <CircleDollarSign className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{addErrorMessage}</span>
               </div>
             )}
 
@@ -602,7 +853,7 @@ export default function WalletsClient({
               <div>
                 <label
                   htmlFor="wallet-name"
-                  className="mb-2 block text-sm font-medium"
+                  className="mb-2 block text-sm font-semibold"
                 >
                   Nama Wallet
                 </label>
@@ -616,14 +867,14 @@ export default function WalletsClient({
                   }
                   placeholder="Contoh: BCA, GoPay, Cash"
                   disabled={isSubmitting}
-                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/10"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="wallet-type"
-                  className="mb-2 block text-sm font-medium"
+                  className="mb-2 block text-sm font-semibold"
                 >
                   Tipe Wallet
                 </label>
@@ -635,7 +886,7 @@ export default function WalletsClient({
                     setType(event.target.value)
                   }
                   disabled={isSubmitting}
-                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
                 >
                   <option value="BANK">Bank</option>
                   <option value="E_WALLET">E-Wallet</option>
@@ -648,7 +899,7 @@ export default function WalletsClient({
               <div>
                 <label
                   htmlFor="wallet-balance"
-                  className="mb-2 block text-sm font-medium"
+                  className="mb-2 block text-sm font-semibold"
                 >
                   Saldo Awal
                 </label>
@@ -664,21 +915,21 @@ export default function WalletsClient({
                   }
                   placeholder="Contoh: 500000"
                   disabled={isSubmitting}
-                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/10"
                 />
 
-                <p className="mt-1.5 text-xs text-muted-foreground">
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
                   Masukkan angka saja, tanpa Rp atau titik.
                 </p>
               </div>
             </div>
 
-            <div className="mt-7 flex justify-end gap-3">
+            <div className="mt-7 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={handleCloseAdd}
                 disabled={isSubmitting}
-                className="rounded-lg border px-4 py-2.5 text-sm font-medium transition hover:bg-muted"
+                className="h-11 rounded-xl border px-4 text-sm font-semibold transition hover:bg-muted"
               >
                 Batal
               </button>
@@ -687,34 +938,37 @@ export default function WalletsClient({
                 type="button"
                 onClick={handleAddWallet}
                 disabled={isSubmitting}
-                className="rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-black/80"
+                className="h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting
-                  ? "Menyimpan..."
-                  : "Simpan Wallet"}
+                {isSubmitting ? "Menyimpan..." : "Simpan Wallet"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* =========================
+      {/* =====================================================
           EDIT WALLET MODAL
-      ========================= */}
+      ===================================================== */}
+
       {isEditOpen && editingWallet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div
-            className="w-full max-w-md rounded-2xl bg-background p-6 shadow-xl"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border bg-background p-6 shadow-2xl sm:p-7"
             role="dialog"
             aria-modal="true"
           >
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Pencil className="h-5 w-5" />
+                </div>
+
                 <h2 className="text-xl font-bold">
                   Edit Wallet
                 </h2>
 
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
                   Ubah informasi wallet kamu.
                 </p>
               </div>
@@ -723,14 +977,15 @@ export default function WalletsClient({
                 type="button"
                 onClick={handleCloseEdit}
                 disabled={isEditSubmitting}
-                className="text-xl text-muted-foreground transition hover:text-foreground"
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                aria-label="Tutup"
               >
-                ×
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             {editErrorMessage && (
-              <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
                 {editErrorMessage}
               </div>
             )}
@@ -739,7 +994,7 @@ export default function WalletsClient({
               <div>
                 <label
                   htmlFor="edit-wallet-name"
-                  className="mb-2 block text-sm font-medium"
+                  className="mb-2 block text-sm font-semibold"
                 >
                   Nama Wallet
                 </label>
@@ -753,14 +1008,14 @@ export default function WalletsClient({
                   }
                   placeholder="Contoh: BCA, GoPay, Cash"
                   disabled={isEditSubmitting}
-                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/10"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="edit-wallet-type"
-                  className="mb-2 block text-sm font-medium"
+                  className="mb-2 block text-sm font-semibold"
                 >
                   Tipe Wallet
                 </label>
@@ -772,7 +1027,7 @@ export default function WalletsClient({
                     setEditType(event.target.value)
                   }
                   disabled={isEditSubmitting}
-                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
                 >
                   <option value="BANK">Bank</option>
                   <option value="E_WALLET">E-Wallet</option>
@@ -782,11 +1037,10 @@ export default function WalletsClient({
                 </select>
               </div>
 
-              {/* SALDO READ ONLY */}
               <div>
                 <label
                   htmlFor="edit-wallet-balance"
-                  className="mb-2 block text-sm font-medium"
+                  className="mb-2 block text-sm font-semibold"
                 >
                   Saldo
                 </label>
@@ -796,22 +1050,22 @@ export default function WalletsClient({
                   type="text"
                   value={formatRupiah(editingWallet.balance)}
                   disabled
-                  className="w-full rounded-lg border bg-muted px-3 py-2.5 text-sm text-muted-foreground"
+                  className="h-11 w-full rounded-xl border bg-muted px-3.5 text-sm text-muted-foreground"
                 />
 
-                <p className="mt-1.5 text-xs text-muted-foreground">
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
                   Saldo tidak dapat diubah dari menu Edit.
                   Gunakan transaksi untuk mengubah saldo.
                 </p>
               </div>
             </div>
 
-            <div className="mt-7 flex justify-end gap-3">
+            <div className="mt-7 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={handleCloseEdit}
                 disabled={isEditSubmitting}
-                className="rounded-lg border px-4 py-2.5 text-sm font-medium transition hover:bg-muted"
+                className="h-11 rounded-xl border px-4 text-sm font-semibold transition hover:bg-muted"
               >
                 Batal
               </button>
@@ -820,7 +1074,7 @@ export default function WalletsClient({
                 type="button"
                 onClick={handleEditWallet}
                 disabled={isEditSubmitting}
-                className="rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-black/80"
+                className="h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isEditSubmitting
                   ? "Menyimpan..."
@@ -831,21 +1085,26 @@ export default function WalletsClient({
         </div>
       )}
 
-      {/* =========================
+      {/* =====================================================
           DEACTIVATE MODAL
-      ========================= */}
+      ===================================================== */}
+
       {isDeactivateOpen && deactivatingWallet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div
-            className="w-full max-w-md rounded-2xl bg-background p-6 shadow-xl"
+            className="w-full max-w-md rounded-3xl border bg-background p-6 shadow-2xl sm:p-7"
             role="dialog"
             aria-modal="true"
           >
-            <h2 className="text-xl font-bold">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400">
+              <Archive className="h-6 w-6" />
+            </div>
+
+            <h2 className="mt-5 text-xl font-bold">
               Nonaktifkan Wallet?
             </h2>
 
-            <p className="mt-3 text-sm text-muted-foreground">
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
               Apakah kamu yakin ingin menonaktifkan wallet{" "}
               <span className="font-semibold text-foreground">
                 {deactivatingWallet.name}
@@ -853,24 +1112,34 @@ export default function WalletsClient({
               ?
             </p>
 
-            <p className="mt-3 text-sm text-muted-foreground">
+            <div className="mt-4 rounded-2xl bg-muted/50 p-4">
+              <p className="text-xs text-muted-foreground">
+                Saldo terakhir
+              </p>
+
+              <p className="mt-1 font-semibold">
+                {formatRupiah(deactivatingWallet.balance)}
+              </p>
+            </div>
+
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">
               Wallet tidak akan dihapus dari database. Riwayat
               transaksi tetap aman dan wallet tidak akan digunakan
               sebagai wallet aktif.
             </p>
 
             {deactivateErrorMessage && (
-              <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
                 {deactivateErrorMessage}
               </div>
             )}
 
-            <div className="mt-7 flex justify-end gap-3">
+            <div className="mt-7 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={handleCloseDeactivate}
                 disabled={isDeactivateSubmitting}
-                className="rounded-lg border px-4 py-2.5 text-sm font-medium transition hover:bg-muted"
+                className="h-11 rounded-xl border px-4 text-sm font-semibold transition hover:bg-muted"
               >
                 Batal
               </button>
@@ -879,7 +1148,7 @@ export default function WalletsClient({
                 type="button"
                 onClick={handleDeactivateWallet}
                 disabled={isDeactivateSubmitting}
-                className="rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-black/80"
+                className="h-11 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isDeactivateSubmitting
                   ? "Menonaktifkan..."
@@ -890,21 +1159,26 @@ export default function WalletsClient({
         </div>
       )}
 
-      {/* =========================
+      {/* =====================================================
           ACTIVATE MODAL
-      ========================= */}
+      ===================================================== */}
+
       {isActivateOpen && activatingWallet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div
-            className="w-full max-w-md rounded-2xl bg-background p-6 shadow-xl"
+            className="w-full max-w-md rounded-3xl border bg-background p-6 shadow-2xl sm:p-7"
             role="dialog"
             aria-modal="true"
           >
-            <h2 className="text-xl font-bold">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <RotateCcw className="h-6 w-6" />
+            </div>
+
+            <h2 className="mt-5 text-xl font-bold">
               Aktifkan Kembali Wallet?
             </h2>
 
-            <p className="mt-3 text-sm text-muted-foreground">
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
               Apakah kamu yakin ingin mengaktifkan kembali wallet{" "}
               <span className="font-semibold text-foreground">
                 {activatingWallet.name}
@@ -912,24 +1186,34 @@ export default function WalletsClient({
               ?
             </p>
 
-            <p className="mt-3 text-sm text-muted-foreground">
+            <div className="mt-4 rounded-2xl bg-emerald-500/5 p-4">
+              <p className="text-xs text-muted-foreground">
+                Saldo terakhir
+              </p>
+
+              <p className="mt-1 font-semibold">
+                {formatRupiah(activatingWallet.balance)}
+              </p>
+            </div>
+
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">
               Saldo terakhir dan riwayat transaksi wallet akan tetap
               dipertahankan. Setelah diaktifkan, wallet akan kembali
               dihitung ke dalam Total Balance.
             </p>
 
             {activateErrorMessage && (
-              <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
                 {activateErrorMessage}
               </div>
             )}
 
-            <div className="mt-7 flex justify-end gap-3">
+            <div className="mt-7 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={handleCloseActivate}
                 disabled={isActivateSubmitting}
-                className="rounded-lg border px-4 py-2.5 text-sm font-medium transition hover:bg-muted"
+                className="h-11 rounded-xl border px-4 text-sm font-semibold transition hover:bg-muted"
               >
                 Batal
               </button>
@@ -938,7 +1222,7 @@ export default function WalletsClient({
                 type="button"
                 onClick={handleActivateWallet}
                 disabled={isActivateSubmitting}
-                className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-700"
+                className="h-11 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isActivateSubmitting
                   ? "Mengaktifkan..."

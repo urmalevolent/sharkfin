@@ -1,6 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  CircleDollarSign,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Receipt,
+  Target,
+  Trash2,
+  WalletCards,
+  X,
+  XCircle,
+} from "lucide-react";
 
 type BudgetStatus =
   | "NORMAL"
@@ -46,15 +62,19 @@ type Props = {
 
 function formatRupiah(value: string | number) {
   const amount =
-    typeof value === "string"
-      ? Number(value)
-      : value;
+    typeof value === "string" ? Number(value) : value;
 
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function getMonthName(month: number) {
+  return new Date(2000, month - 1).toLocaleString("id-ID", {
+    month: "long",
+  });
 }
 
 function getStatusLabel(status: BudgetStatus) {
@@ -76,23 +96,65 @@ function getStatusLabel(status: BudgetStatus) {
   }
 }
 
+function getStatusIcon(status: BudgetStatus) {
+  switch (status) {
+    case "NORMAL":
+      return CheckCircle2;
+
+    case "WATCH":
+      return MoreHorizontal;
+
+    case "WARNING":
+      return AlertTriangle;
+
+    case "EXCEEDED":
+      return XCircle;
+
+    default:
+      return MoreHorizontal;
+  }
+}
+
 function getStatusClass(status: BudgetStatus) {
   switch (status) {
     case "NORMAL":
-      return "bg-green-100 text-green-700";
+      return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
 
     case "WATCH":
-      return "bg-yellow-100 text-yellow-700";
+      return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
 
     case "WARNING":
-      return "bg-orange-100 text-orange-700";
+      return "bg-orange-500/10 text-orange-600 dark:text-orange-400";
 
     case "EXCEEDED":
-      return "bg-red-100 text-red-700";
+      return "bg-red-500/10 text-red-600 dark:text-red-400";
 
     default:
-      return "bg-gray-100 text-gray-700";
+      return "bg-muted text-muted-foreground";
   }
+}
+
+function getProgressClass(status: BudgetStatus) {
+  switch (status) {
+    case "NORMAL":
+      return "bg-emerald-500";
+
+    case "WATCH":
+      return "bg-amber-500";
+
+    case "WARNING":
+      return "bg-orange-500";
+
+    case "EXCEEDED":
+      return "bg-red-500";
+
+    default:
+      return "bg-primary";
+  }
+}
+
+function getCategoryIcon(category: Category | Budget["category"]) {
+  return category.icon || "💰";
 }
 
 function getProgressWidth(usage: number) {
@@ -161,14 +223,9 @@ export default function BudgetsClient({
         );
       }
 
-      // API mengembalikan:
-      // { success: true, data: [...] }
       setBudgets(data.data ?? []);
     } catch (err) {
-      console.error(
-        "Load budgets error:",
-        err
-      );
+      console.error("Load budgets error:", err);
 
       setError(
         err instanceof Error
@@ -194,6 +251,30 @@ export default function BudgetsClient({
     await loadBudgets(month, year);
   };
 
+  const goToPreviousMonth = async () => {
+    let month = selectedMonth - 1;
+    let year = selectedYear;
+
+    if (month < 1) {
+      month = 12;
+      year -= 1;
+    }
+
+    await handlePeriodChange(month, year);
+  };
+
+  const goToNextMonth = async () => {
+    let month = selectedMonth + 1;
+    let year = selectedYear;
+
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+
+    await handlePeriodChange(month, year);
+  };
+
   // ========================================================
   // RESET FORM
   // ========================================================
@@ -204,6 +285,18 @@ export default function BudgetsClient({
     setEditingBudget(null);
     setShowForm(false);
     setError("");
+  };
+
+  // ========================================================
+  // OPEN ADD
+  // ========================================================
+
+  const handleOpenAdd = () => {
+    setEditingBudget(null);
+    setSelectedCategoryId("");
+    setAmount("");
+    setError("");
+    setShowForm(true);
   };
 
   // ========================================================
@@ -219,9 +312,7 @@ export default function BudgetsClient({
       setError("");
 
       if (!selectedCategoryId) {
-        setError(
-          "Silakan pilih kategori."
-        );
+        setError("Silakan pilih kategori.");
         return;
       }
 
@@ -250,8 +341,7 @@ export default function BudgetsClient({
       const response = await fetch(url, {
         method,
         headers: {
-          "Content-Type":
-            "application/json",
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
       });
@@ -266,11 +356,8 @@ export default function BudgetsClient({
         );
       }
 
-      // Tutup dan reset form
       resetForm();
 
-      // Ambil ulang data budget berdasarkan
-      // periode yang sedang dipilih.
       await loadBudgets(
         selectedMonth,
         selectedYear
@@ -412,10 +499,17 @@ export default function BudgetsClient({
         0
       );
 
+    const exceededCount =
+      budgets.filter(
+        (budget) =>
+          budget.status === "EXCEEDED"
+      ).length;
+
     return {
       totalBudget,
       totalSpent,
       totalRemaining,
+      exceededCount,
     };
   }, [budgets]);
 
@@ -424,421 +518,762 @@ export default function BudgetsClient({
   // ========================================================
 
   return (
-    <main className="min-h-screen p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <>
+      <div className="min-h-screen bg-muted/20">
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
 
-        {/* HEADER */}
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">
-              Budget
-            </h1>
+          <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <Target className="h-4 w-4" />
+                <span>Keuangan</span>
+                <span>/</span>
+                <span className="text-foreground">
+                  Budget
+                </span>
+              </div>
 
-            <p className="text-sm text-gray-500">
-              Atur batas pengeluaran
-              bulananmu.
-            </p>
-          </div>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                Budget
+              </h1>
 
-          <button
-            type="button"
-            onClick={() => {
-              setEditingBudget(null);
-              setSelectedCategoryId("");
-              setAmount("");
-              setShowForm(true);
-              setError("");
-            }}
-            className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-          >
-            + Tambah Budget
-          </button>
-        </div>
-
-        {/* PERIOD */}
-
-        <div className="flex flex-wrap gap-3">
-          <select
-            value={selectedMonth}
-            onChange={(event) =>
-              handlePeriodChange(
-                Number(event.target.value),
-                selectedYear
-              )
-            }
-            className="rounded-lg border px-3 py-2 text-sm"
-          >
-            {Array.from(
-              { length: 12 },
-              (_, index) => {
-                const month = index + 1;
-
-                return (
-                  <option
-                    key={month}
-                    value={month}
-                  >
-                    {new Date(
-                      2000,
-                      index
-                    ).toLocaleString(
-                      "id-ID",
-                      {
-                        month: "long",
-                      }
-                    )}
-                  </option>
-                );
-              }
-            )}
-          </select>
-
-          <select
-            value={selectedYear}
-            onChange={(event) =>
-              handlePeriodChange(
-                selectedMonth,
-                Number(event.target.value)
-              )
-            }
-            className="rounded-lg border px-3 py-2 text-sm"
-          >
-            {Array.from(
-              { length: 5 },
-              (_, index) => {
-                const year =
-                  initialYear -
-                  2 +
-                  index;
-
-                return (
-                  <option
-                    key={year}
-                    value={year}
-                  >
-                    {year}
-                  </option>
-                );
-              }
-            )}
-          </select>
-        </div>
-
-        {/* ERROR */}
-
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {/* SUMMARY */}
-
-        <div className="grid gap-4 md:grid-cols-3">
-
-          <div className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-gray-500">
-              Total Budget
-            </p>
-
-            <p className="mt-2 text-xl font-bold">
-              {formatRupiah(
-                summary.totalBudget
-              )}
-            </p>
-          </div>
-
-          <div className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-gray-500">
-              Total Terpakai
-            </p>
-
-            <p className="mt-2 text-xl font-bold">
-              {formatRupiah(
-                summary.totalSpent
-              )}
-            </p>
-          </div>
-
-          <div className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-gray-500">
-              Sisa Budget
-            </p>
-
-            <p className="mt-2 text-xl font-bold">
-              {formatRupiah(
-                summary.totalRemaining
-              )}
-            </p>
-          </div>
-
-        </div>
-
-        {/* FORM */}
-
-        {showForm && (
-          <div className="rounded-xl border bg-white p-6">
-
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">
-                {editingBudget
-                  ? "Edit Budget"
-                  : "Tambah Budget"}
-              </h2>
-
-              <button
-                type="button"
-                onClick={resetForm}
-                className="text-sm text-gray-500 hover:text-black"
-              >
-                Batal
-              </button>
+              <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted-foreground">
+                Atur batas pengeluaran agar keuanganmu
+                tetap terkontrol.
+              </p>
             </div>
-
-            <form
-              onSubmit={handleSubmit}
-              className="grid gap-4 md:grid-cols-2"
-            >
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Kategori
-                </label>
-
-                <select
-                  value={selectedCategoryId}
-                  onChange={(event) =>
-                    setSelectedCategoryId(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-lg border px-3 py-2"
-                >
-                  <option value="">
-                    Pilih kategori
-                  </option>
-
-                  {availableCategories.map(
-                    (category) => (
-                      <option
-                        key={category.id}
-                        value={category.id}
-                      >
-                        {category.icon
-                          ? `${category.icon} `
-                          : ""}
-                        {category.name}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Jumlah Budget
-                </label>
-
-                <input
-                  type="number"
-                  min="1"
-                  value={amount}
-                  onChange={(event) =>
-                    setAmount(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Contoh: 500000"
-                  className="w-full rounded-lg border px-3 py-2"
-                />
-
-                <p className="mt-1 text-xs text-gray-500">
-                  Masukkan angka tanpa titik
-                  atau simbol Rp.
-                </p>
-              </div>
-
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="rounded-lg bg-black px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {loading
-                    ? "Menyimpan..."
-                    : editingBudget
-                      ? "Simpan Perubahan"
-                      : "Simpan Budget"}
-                </button>
-              </div>
-
-            </form>
-          </div>
-        )}
-
-        {/* BUDGET LIST */}
-
-        {loading ? (
-          <div className="rounded-xl border bg-white p-10 text-center text-sm text-gray-500">
-            Memuat budget...
-          </div>
-        ) : budgets.length === 0 ? (
-          <div className="rounded-xl border bg-white p-10 text-center">
-
-            <h2 className="font-semibold">
-              Belum ada budget
-            </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Buat budget untuk membantu
-              mengontrol pengeluaranmu
-              bulan ini.
-            </p>
 
             <button
               type="button"
-              onClick={() =>
-                setShowForm(true)
-              }
-              className="mt-4 rounded-lg bg-black px-4 py-2 text-sm text-white"
+              onClick={handleOpenAdd}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 active:scale-[0.98]"
             >
-              + Buat Budget
+              <Plus className="h-4 w-4" />
+              Buat Budget
             </button>
-
           </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
 
-            {budgets.map((budget) => {
-              const progress =
-                getProgressWidth(
-                  budget.usage
-                );
+          {/* =================================================
+              SUMMARY
+          ================================================= */}
 
-              return (
-                <div
-                  key={budget.id}
-                  className="rounded-xl border bg-white p-5"
+          <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+            {/* TOTAL BUDGET */}
+
+            <div className="rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <WalletCards className="h-5 w-5" />
+                </div>
+
+                <span className="text-xs text-muted-foreground">
+                  Batas
+                </span>
+              </div>
+
+              <p className="mt-5 text-sm text-muted-foreground">
+                Total Budget
+              </p>
+
+              <p className="mt-1 break-all text-xl font-bold tracking-tight">
+                {formatRupiah(summary.totalBudget)}
+              </p>
+            </div>
+
+            {/* SPENT */}
+
+            <div className="rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                  <Receipt className="h-5 w-5" />
+                </div>
+
+                <span className="text-xs text-muted-foreground">
+                  Terpakai
+                </span>
+              </div>
+
+              <p className="mt-5 text-sm text-muted-foreground">
+                Total Terpakai
+              </p>
+
+              <p className="mt-1 break-all text-xl font-bold tracking-tight">
+                {formatRupiah(summary.totalSpent)}
+              </p>
+            </div>
+
+            {/* REMAINING */}
+
+            <div className="rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <CircleDollarSign className="h-5 w-5" />
+                </div>
+
+                <span className="text-xs text-muted-foreground">
+                  Tersisa
+                </span>
+              </div>
+
+              <p className="mt-5 text-sm text-muted-foreground">
+                Total Tersisa
+              </p>
+
+              <p
+                className={`mt-1 break-all text-xl font-bold tracking-tight ${
+                  summary.totalRemaining < 0
+                    ? "text-red-600 dark:text-red-400"
+                    : ""
+                }`}
+              >
+                {formatRupiah(summary.totalRemaining)}
+              </p>
+            </div>
+
+            {/* BUDGET COUNT */}
+
+            <div className="rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                  <Target className="h-5 w-5" />
+                </div>
+
+                {summary.exceededCount > 0 && (
+                  <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                    {summary.exceededCount} terlewati
+                  </span>
+                )}
+              </div>
+
+              <p className="mt-5 text-sm text-muted-foreground">
+                Jumlah Budget
+              </p>
+
+              <p className="mt-1 text-2xl font-bold tracking-tight">
+                {budgets.length}
+              </p>
+            </div>
+          </section>
+
+          {/* =================================================
+              PERIOD SELECTOR
+          ================================================= */}
+
+          <section className="mb-6 rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Periode Budget
+                </p>
+
+                <h2 className="mt-1 text-lg font-bold capitalize">
+                  {getMonthName(selectedMonth)}{" "}
+                  {selectedYear}
+                </h2>
+              </div>
+
+              <div className="flex items-center gap-2">
+
+                <button
+                  type="button"
+                  onClick={goToPreviousMonth}
+                  disabled={loading}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border bg-background transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Bulan sebelumnya"
+                  aria-label="Bulan sebelumnya"
                 >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
 
-                  <div className="flex items-start justify-between gap-4">
+                <select
+                  value={selectedMonth}
+                  onChange={(event) =>
+                    handlePeriodChange(
+                      Number(event.target.value),
+                      selectedYear
+                    )
+                  }
+                  disabled={loading}
+                  className="h-10 rounded-xl border bg-background px-3 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                >
+                  {Array.from(
+                    { length: 12 },
+                    (_, index) => {
+                      const month = index + 1;
 
-                    <div>
-                      <div className="flex items-center gap-2">
+                      return (
+                        <option
+                          key={month}
+                          value={month}
+                        >
+                          {getMonthName(month)}
+                        </option>
+                      );
+                    }
+                  )}
+                </select>
 
-                        <span className="text-lg">
-                          {budget.category.icon ||
-                            "💰"}
-                        </span>
+                <select
+                  value={selectedYear}
+                  onChange={(event) =>
+                    handlePeriodChange(
+                      selectedMonth,
+                      Number(event.target.value)
+                    )
+                  }
+                  disabled={loading}
+                  className="h-10 rounded-xl border bg-background px-3 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                >
+                  {Array.from(
+                    { length: 5 },
+                    (_, index) => {
+                      const year =
+                        initialYear - 2 + index;
 
-                        <h3 className="font-semibold">
-                          {budget.category.name}
-                        </h3>
+                      return (
+                        <option
+                          key={year}
+                          value={year}
+                        >
+                          {year}
+                        </option>
+                      );
+                    }
+                  )}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={goToNextMonth}
+                  disabled={loading}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border bg-background transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Bulan berikutnya"
+                  aria-label="Bulan berikutnya"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+
+              </div>
+            </div>
+          </section>
+
+          {/* =================================================
+              ERROR
+          ================================================= */}
+
+          {error && (
+            <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3.5 text-sm leading-6 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+
+              <button
+                type="button"
+                onClick={() => setError("")}
+                className="ml-auto shrink-0 rounded-lg p-1 transition hover:bg-red-100 dark:hover:bg-red-950"
+                aria-label="Tutup pesan error"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {/* =================================================
+              FORM
+          ================================================= */}
+
+          {showForm && (
+            <section className="mb-8 rounded-3xl border bg-card p-6 shadow-sm sm:p-7">
+
+              <div className="mb-6 flex items-start justify-between gap-4">
+                <div>
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    {editingBudget ? (
+                      <Pencil className="h-5 w-5" />
+                    ) : (
+                      <Plus className="h-5 w-5" />
+                    )}
+                  </div>
+
+                  <h2 className="text-xl font-bold">
+                    {editingBudget
+                      ? "Edit Budget"
+                      : "Buat Budget"}
+                  </h2>
+
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    {editingBudget
+                      ? "Perbarui batas pengeluaran kategori ini."
+                      : `Atur batas pengeluaran untuk ${getMonthName(
+                          selectedMonth
+                        )} ${selectedYear}.`}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  aria-label="Tutup form"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleSubmit}
+                className="grid gap-5 md:grid-cols-2"
+              >
+
+                {/* CATEGORY */}
+
+                <div>
+                  <label
+                    htmlFor="budget-category"
+                    className="mb-2 block text-sm font-semibold"
+                  >
+                    Kategori
+                  </label>
+
+                  <select
+                    id="budget-category"
+                    value={selectedCategoryId}
+                    onChange={(event) =>
+                      setSelectedCategoryId(
+                        event.target.value
+                      )
+                    }
+                    className="h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  >
+                    <option value="">
+                      Pilih kategori
+                    </option>
+
+                    {availableCategories.map(
+                      (category) => (
+                        <option
+                          key={category.id}
+                          value={category.id}
+                        >
+                          {category.icon
+                            ? `${category.icon} `
+                            : ""}
+                          {category.name}
+                        </option>
+                      )
+                    )}
+                  </select>
+
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    Pilih kategori pengeluaran yang ingin
+                    kamu batasi.
+                  </p>
+                </div>
+
+                {/* AMOUNT */}
+
+                <div>
+                  <label
+                    htmlFor="budget-amount"
+                    className="mb-2 block text-sm font-semibold"
+                  >
+                    Jumlah Budget
+                  </label>
+
+                  <input
+                    id="budget-amount"
+                    type="number"
+                    min="1"
+                    value={amount}
+                    onChange={(event) =>
+                      setAmount(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Contoh: 500000"
+                    className="h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  />
+
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    Masukkan angka tanpa titik atau simbol
+                    Rp.
+                  </p>
+                </div>
+
+                {/* FORM ERROR */}
+
+                {error && (
+                  <div className="md:col-span-2 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                {/* BUTTONS */}
+
+                <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row md:col-span-2 md:justify-end">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    disabled={loading}
+                    className="h-11 rounded-xl border px-5 text-sm font-semibold transition hover:bg-muted disabled:opacity-50"
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loading
+                      ? "Menyimpan..."
+                      : editingBudget
+                        ? "Simpan Perubahan"
+                        : "Simpan Budget"}
+                  </button>
+                </div>
+
+              </form>
+            </section>
+          )}
+
+          {/* =================================================
+              BUDGET LIST HEADER
+          ================================================= */}
+
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight">
+                Budget Kamu
+              </h2>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Pantau penggunaan budget{" "}
+                <span className="capitalize">
+                  {getMonthName(selectedMonth)}
+                </span>{" "}
+                {selectedYear}.
+              </p>
+            </div>
+
+            {budgets.length > 0 && (
+              <span className="hidden rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary sm:inline-flex">
+                {budgets.length} kategori
+              </span>
+            )}
+          </div>
+
+          {/* =================================================
+              LOADING
+          ================================================= */}
+
+          {loading ? (
+            <div className="grid gap-4 md:grid-cols-2">
+
+              {Array.from(
+                { length: 4 },
+                (_, index) => (
+                  <div
+                    key={index}
+                    className="rounded-3xl border bg-card p-5 shadow-sm"
+                  >
+                    <div className="animate-pulse">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="h-11 w-11 rounded-2xl bg-muted" />
+
+                          <div>
+                            <div className="h-4 w-28 rounded bg-muted" />
+                            <div className="mt-2 h-3 w-16 rounded bg-muted" />
+                          </div>
+                        </div>
+
+                        <div className="h-6 w-20 rounded-full bg-muted" />
+                      </div>
+
+                      <div className="mt-8 h-7 w-36 rounded bg-muted" />
+
+                      <div className="mt-5 h-2 rounded-full bg-muted" />
+
+                      <div className="mt-4 h-4 w-full rounded bg-muted" />
+
+                      <div className="mt-6 h-9 rounded-xl bg-muted" />
+                    </div>
+                  </div>
+                )
+              )}
+
+            </div>
+          ) : budgets.length === 0 ? (
+
+            /* =================================================
+               EMPTY STATE
+            ================================================= */
+
+            <div className="rounded-3xl border border-dashed bg-card p-8 text-center shadow-sm sm:p-12">
+
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Target className="h-7 w-7" />
+              </div>
+
+              <h2 className="mt-5 text-lg font-bold">
+                Belum ada budget
+              </h2>
+
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+                Belum ada batas pengeluaran untuk periode
+                ini. Buat budget agar kamu bisa memantau
+                pengeluaran berdasarkan kategori.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleOpenAdd}
+                className="mt-6 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+              >
+                <Plus className="h-4 w-4" />
+                Buat Budget
+              </button>
+
+            </div>
+
+          ) : (
+
+            /* =================================================
+               BUDGET CARDS
+            ================================================= */
+
+            <div className="grid gap-4 md:grid-cols-2">
+
+              {budgets.map((budget) => {
+                const progress =
+                  getProgressWidth(
+                    budget.usage
+                  );
+
+                const StatusIcon =
+                  getStatusIcon(
+                    budget.status
+                  );
+
+                return (
+                  <article
+                    key={budget.id}
+                    className="group rounded-3xl border bg-card p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:p-6"
+                  >
+
+                    {/* CARD HEADER */}
+
+                    <div className="flex items-start justify-between gap-4">
+
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-xl">
+                          {getCategoryIcon(
+                            budget.category
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <h3 className="truncate font-semibold">
+                            {budget.category.name}
+                          </h3>
+
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Batas{" "}
+                            {formatRupiah(
+                              budget.amount
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div
+                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
+                          budget.status
+                        )}`}
+                      >
+                        <StatusIcon className="h-3.5 w-3.5" />
+                        {getStatusLabel(
+                          budget.status
+                        )}
+                      </div>
+
+                    </div>
+
+                    {/* AMOUNT */}
+
+                    <div className="mt-7">
+                      <div className="flex items-end justify-between gap-4">
+
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Terpakai
+                          </p>
+
+                          <p className="mt-1 break-all text-2xl font-bold tracking-tight">
+                            {formatRupiah(
+                              budget.spent
+                            )}
+                          </p>
+                        </div>
+
+                        <p className="shrink-0 text-lg font-bold">
+                          {budget.usage.toFixed(0)}%
+                        </p>
 
                       </div>
 
-                      <p className="mt-1 text-sm text-gray-500">
-                        Budget{" "}
-                        {formatRupiah(
-                          budget.amount
-                        )}
-                      </p>
+                      {/* PROGRESS */}
+
+                      <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${getProgressClass(
+                            budget.status
+                          )}`}
+                          style={{
+                            width: `${progress}%`,
+                          }}
+                        />
+                      </div>
+
+                      <div className="mt-2 flex justify-between gap-3 text-xs text-muted-foreground">
+                        <span>
+                          Rp 0
+                        </span>
+
+                        <span>
+                          {formatRupiah(
+                            budget.amount
+                          )}
+                        </span>
+                      </div>
                     </div>
 
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusClass(
-                        budget.status
-                      )}`}
-                    >
-                      {getStatusLabel(
-                        budget.status
-                      )}
-                    </span>
+                    {/* REMAINING */}
 
-                  </div>
-
-                  <div className="mt-5">
-
-                    <div className="mb-2 flex justify-between text-sm">
-
-                      <span>
-                        Terpakai{" "}
-                        {formatRupiah(
-                          budget.spent
-                        )}
+                    <div className="mt-5 flex items-center justify-between rounded-2xl bg-muted/40 px-4 py-3">
+                      <span className="text-sm text-muted-foreground">
+                        Sisa budget
                       </span>
 
-                      <span>
-                        {budget.usage.toFixed(
-                          0
+                      <span
+                        className={`text-sm font-bold ${
+                          Number(
+                            budget.remaining
+                          ) < 0
+                            ? "text-red-600 dark:text-red-400"
+                            : ""
+                        }`}
+                      >
+                        {formatRupiah(
+                          budget.remaining
                         )}
-                        %
                       </span>
+                    </div>
+
+                    {/* EXCEEDED / WARNING MESSAGE */}
+
+                    {budget.status ===
+                      "EXCEEDED" && (
+                      <div className="mt-4 flex items-start gap-2.5 rounded-2xl bg-red-500/5 px-4 py-3 text-xs leading-5 text-red-600 dark:text-red-400">
+                        <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+
+                        <span>
+                          Pengeluaran sudah melewati batas
+                          budget kategori ini.
+                        </span>
+                      </div>
+                    )}
+
+                    {budget.status ===
+                      "WARNING" && (
+                      <div className="mt-4 flex items-start gap-2.5 rounded-2xl bg-orange-500/5 px-4 py-3 text-xs leading-5 text-orange-600 dark:text-orange-400">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+
+                        <span>
+                          Penggunaan budget sudah mendekati
+                          batas yang ditentukan.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* ACTIONS */}
+
+                    <div className="mt-5 flex gap-2 border-t pt-4">
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleEdit(
+                            budget
+                          )
+                        }
+                        className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-xl border bg-background px-3 text-sm font-medium transition hover:bg-muted"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDelete(
+                            budget.id
+                          )
+                        }
+                        className="inline-flex h-9 items-center justify-center rounded-xl border px-3 text-muted-foreground transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-900 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                        title="Hapus budget"
+                        aria-label={`Hapus budget ${budget.category.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
 
                     </div>
 
-                    <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                      <div
-                        className="h-full rounded-full bg-black transition-all"
-                        style={{
-                          width: `${progress}%`,
-                        }}
-                      />
-                    </div>
+                  </article>
+                );
+              })}
 
-                  </div>
+            </div>
+          )}
 
-                  <div className="mt-4 flex justify-between text-sm">
+          {/* =================================================
+              INFORMATION
+          ================================================= */}
 
-                    <span className="text-gray-500">
-                      Sisa
-                    </span>
-
-                    <span className="font-semibold">
-                      {formatRupiah(
-                        budget.remaining
-                      )}
-                    </span>
-
-                  </div>
-
-                  <div className="mt-5 flex gap-2 border-t pt-4">
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleEdit(
-                          budget
-                        )
-                      }
-                      className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50"
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleDelete(
-                          budget.id
-                        )
-                      }
-                      className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                    >
-                      Hapus
-                    </button>
-
-                  </div>
-
+          {budgets.length > 0 && !loading && (
+            <div className="mt-8 rounded-2xl border bg-card p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <CircleDollarSign className="h-4 w-4" />
                 </div>
-              );
-            })}
 
-          </div>
-        )}
+                <div>
+                  <p className="text-sm font-semibold">
+                    Tentang Budget
+                  </p>
 
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Budget adalah batas pengeluaran yang
+                    kamu tentukan untuk suatu kategori.
+                    Pengeluaran aktual tetap tercatat
+                    melalui transaksi dan akan digunakan
+                    SharkFin untuk menghitung penggunaan
+                    budget.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
-    </main>
+    </>
   );
 }

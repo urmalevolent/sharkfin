@@ -15,9 +15,7 @@ export default async function Layout({
   }
 
   return (
-    <DashboardLayout
-      userName={session.user.name ?? "User"}
-    >
+    <DashboardLayout userName={session.user.name ?? "User"}>
       {children}
     </DashboardLayout>
   );

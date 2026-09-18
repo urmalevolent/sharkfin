@@ -19,6 +19,7 @@ import {
 type SidebarProps = {
   open: boolean;
   onClose: () => void;
+  onAskSharkFin: () => void;
 };
 
 const mainMenu = [
@@ -78,6 +79,7 @@ const secondaryMenu = [
 export default function Sidebar({
   open,
   onClose,
+  onAskSharkFin,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -99,7 +101,12 @@ export default function Sidebar({
           type="button"
           aria-label="Tutup sidebar"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-[2px] lg:hidden"
+          className="
+            fixed inset-0 z-40
+            bg-slate-950/50
+            backdrop-blur-[2px]
+            lg:hidden
+          "
         />
       )}
 
@@ -109,12 +116,18 @@ export default function Sidebar({
       <aside
         className={`
           fixed inset-y-0 left-0 z-50
-          flex w-[260px] flex-col
+          flex h-screen w-[260px] shrink-0
+          flex-col
           bg-[#07152F]
           text-white
           shadow-2xl shadow-slate-950/20
           transition-transform duration-300 ease-out
-          lg:static lg:z-auto lg:translate-x-0
+
+          lg:sticky
+          lg:top-0
+          lg:z-40
+          lg:translate-x-0
+
           ${
             open
               ? "translate-x-0"
@@ -134,8 +147,9 @@ export default function Sidebar({
             {/* Logo */}
             <div
               className="
-                flex h-10 w-10 shrink-0 items-center
-                justify-center rounded-xl
+                flex h-10 w-10 shrink-0
+                items-center justify-center
+                rounded-xl
                 bg-[#168CFF]
                 shadow-lg shadow-blue-950/30
                 transition-transform duration-200
@@ -147,7 +161,7 @@ export default function Sidebar({
               </span>
             </div>
 
-            {/* Brand Text */}
+            {/* Brand */}
             <div className="min-w-0">
               <p className="text-[17px] font-bold leading-none tracking-tight text-white">
                 SharkFin
@@ -201,6 +215,7 @@ export default function Sidebar({
                     rounded-xl px-3 py-2.5
                     text-[13px] font-medium
                     transition-all duration-200
+
                     ${
                       active
                         ? `
@@ -220,6 +235,7 @@ export default function Sidebar({
                     className={`
                       h-[18px] w-[18px] shrink-0
                       transition-colors duration-200
+
                       ${
                         active
                           ? "text-white"
@@ -254,6 +270,66 @@ export default function Sidebar({
           <div className="space-y-1">
             {aiMenu.map((item) => {
               const Icon = item.icon;
+
+              /*
+               * Ask SharkFin sekarang bukan Link.
+               * Klik akan membuka modal.
+               */
+              if (item.label === "Ask SharkFin") {
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => {
+                      onAskSharkFin();
+                      onClose();
+                    }}
+                    className="
+                      group flex w-full items-center gap-3
+                      rounded-xl px-3 py-2.5
+                      text-[13px] font-medium
+                      text-slate-400
+                      transition-all duration-200
+                      hover:bg-white/[0.06]
+                      hover:text-white
+                    "
+                  >
+                    <Icon
+                      className="
+                        h-[18px] w-[18px] shrink-0
+                        text-slate-500
+                        transition-colors duration-200
+                        group-hover:text-slate-300
+                      "
+                      strokeWidth={1.8}
+                    />
+
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      {item.label}
+                    </span>
+
+                    {/* AI Badge */}
+                    <span
+                      className="
+                        rounded-md
+                        bg-[#168CFF]/10
+                        px-1.5 py-0.5
+                        text-[9px]
+                        font-bold
+                        uppercase
+                        tracking-wide
+                        text-[#5BAEFF]
+                      "
+                    >
+                      AI
+                    </span>
+                  </button>
+                );
+              }
+
+              /*
+               * Menu AI lainnya tetap menggunakan Link.
+               */
               const active = isActive(item.href);
 
               return (
@@ -266,6 +342,7 @@ export default function Sidebar({
                     rounded-xl px-3 py-2.5
                     text-[13px] font-medium
                     transition-all duration-200
+
                     ${
                       active
                         ? `
@@ -285,6 +362,7 @@ export default function Sidebar({
                     className={`
                       h-[18px] w-[18px] shrink-0
                       transition-colors duration-200
+
                       ${
                         active
                           ? "text-white"
@@ -298,22 +376,11 @@ export default function Sidebar({
                     {item.label}
                   </span>
 
-                  {/* AI Badge */}
-                  {item.label === "Ask SharkFin" && (
-                    <span
-                      className={`
-                        rounded-md px-1.5 py-0.5
-                        text-[9px] font-bold
-                        uppercase tracking-wide
-                        ${
-                          active
-                            ? "bg-white/15 text-white"
-                            : "bg-[#168CFF]/10 text-[#5BAEFF]"
-                        }
-                      `}
-                    >
-                      AI
-                    </span>
+                  {active && (
+                    <ChevronRight
+                      className="h-3.5 w-3.5 shrink-0 text-white/70"
+                      strokeWidth={2}
+                    />
                   )}
                 </Link>
               );
@@ -342,6 +409,7 @@ export default function Sidebar({
                     rounded-xl px-3 py-2.5
                     text-[13px] font-medium
                     transition-all duration-200
+
                     ${
                       active
                         ? `
@@ -361,6 +429,7 @@ export default function Sidebar({
                     className={`
                       h-[18px] w-[18px] shrink-0
                       transition-colors duration-200
+
                       ${
                         active
                           ? "text-white"
@@ -387,8 +456,7 @@ export default function Sidebar({
         </nav>
 
         {/* ======================================
-            SIDEBAR BRAND FOOTER
-            Nanti bisa dipindahkan ke footer.tsx
+            SIDEBAR FOOTER
         ====================================== */}
         <div className="shrink-0 border-t border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">

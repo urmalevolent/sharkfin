@@ -1,6 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+} from "react";
+import {
+  AlertCircle,
+  CalendarClock,
+  Check,
+  ChevronRight,
+  Clock3,
+  Edit3,
+  Plus,
+  RefreshCw,
+  Repeat2,
+  Trash2,
+  WalletCards,
+  X,
+} from "lucide-react";
 
 type Recurrence =
   | "DAILY"
@@ -14,7 +31,11 @@ type ScheduledExpense = {
   amount: string;
   nextDate: string;
   recurrence: Recurrence;
-  status: "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  status:
+    | "PENDING"
+    | "COMPLETED"
+    | "FAILED"
+    | "CANCELLED";
   isActive: boolean;
   wallet: {
     id: string;
@@ -36,7 +57,15 @@ type Props = {
   wallets: Wallet[];
 };
 
-function formatRupiah(value: string | number) {
+type ModalType =
+  | "FORM"
+  | "DELETE"
+  | "TOGGLE"
+  | null;
+
+function formatRupiah(
+  value: string | number,
+) {
   const amount =
     typeof value === "string"
       ? Number(value)
@@ -57,17 +86,86 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function formatRecurrence(value: Recurrence) {
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function formatRecurrence(
+  value: Recurrence,
+) {
   switch (value) {
     case "DAILY":
       return "Setiap hari";
+
     case "WEEKLY":
       return "Setiap minggu";
+
     case "MONTHLY":
       return "Setiap bulan";
+
     case "YEARLY":
       return "Setiap tahun";
+
+    default:
+      return value;
   }
+}
+
+function getRecurrenceDescription(
+  value: Recurrence,
+) {
+  switch (value) {
+    case "DAILY":
+      return "Pengeluaran berulang setiap hari.";
+
+    case "WEEKLY":
+      return "Pengeluaran berulang setiap minggu.";
+
+    case "MONTHLY":
+      return "Pengeluaran berulang setiap bulan.";
+
+    case "YEARLY":
+      return "Pengeluaran berulang setiap tahun.";
+
+    default:
+      return "";
+  }
+}
+
+function isUpcoming(
+  nextDate: string,
+) {
+  const now = new Date();
+  const date = new Date(nextDate);
+
+  const diff =
+    date.getTime() - now.getTime();
+
+  const days =
+    diff / (1000 * 60 * 60 * 24);
+
+  return days >= 0 && days <= 7;
+}
+
+function getDaysUntil(
+  nextDate: string,
+) {
+  const now = new Date();
+  const date = new Date(nextDate);
+
+  now.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+
+  const diff =
+    date.getTime() - now.getTime();
+
+  return Math.ceil(
+    diff / (1000 * 60 * 60 * 24),
+  );
 }
 
 export default function ScheduledExpensesClient({
@@ -75,22 +173,31 @@ export default function ScheduledExpensesClient({
   wallets,
 }: Props) {
   const [expenses, setExpenses] =
-    useState<ScheduledExpense[]>(initialExpenses);
+    useState<ScheduledExpense[]>(
+      initialExpenses,
+    );
 
-  const [showForm, setShowForm] =
-    useState(false);
+  const [modal, setModal] =
+    useState<ModalType>(null);
 
   const [editingExpense, setEditingExpense] =
+    useState<ScheduledExpense | null>(null);
+
+  const [selectedExpense, setSelectedExpense] =
     useState<ScheduledExpense | null>(null);
 
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [walletId, setWalletId] = useState("");
-  const [nextDate, setNextDate] = useState("");
+  const [nextDate, setNextDate] =
+    useState("");
   const [recurrence, setRecurrence] =
     useState<Recurrence>("MONTHLY");
 
   const [loading, setLoading] =
+    useState(false);
+
+  const [saving, setSaving] =
     useState(false);
 
   const [error, setError] =
@@ -99,7 +206,8 @@ export default function ScheduledExpensesClient({
   const activeExpenses = useMemo(
     () =>
       expenses.filter(
-        (expense) => expense.isActive,
+        (expense) =>
+          expense.isActive,
       ),
     [expenses],
   );
@@ -108,11 +216,46 @@ export default function ScheduledExpensesClient({
     () =>
       activeExpenses.reduce(
         (total, expense) =>
-          total + Number(expense.amount),
+          total +
+          Number(expense.amount),
         0,
       ),
     [activeExpenses],
   );
+
+  const involvedWallets = useMemo(
+    () =>
+      new Set(
+        activeExpenses.map(
+          (expense) =>
+            expense.wallet.id,
+        ),
+      ).size,
+    [activeExpenses],
+  );
+
+  const nearestExpense = useMemo(() => {
+    const upcoming =
+      activeExpenses
+        .filter(
+          (expense) =>
+            new Date(
+              expense.nextDate,
+            ).getTime() >=
+            Date.now(),
+        )
+        .sort(
+          (a, b) =>
+            new Date(
+              a.nextDate,
+            ).getTime() -
+            new Date(
+              b.nextDate,
+            ).getTime(),
+        );
+
+    return upcoming[0] ?? null;
+  }, [activeExpenses]);
 
   const loadExpenses = async () => {
     try {
@@ -126,7 +269,8 @@ export default function ScheduledExpensesClient({
         },
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -156,8 +300,18 @@ export default function ScheduledExpensesClient({
     setNextDate("");
     setRecurrence("MONTHLY");
     setEditingExpense(null);
-    setShowForm(false);
+    setModal(null);
+  };
+
+  const openCreateModal = () => {
+    setEditingExpense(null);
+    setName("");
+    setAmount("");
+    setWalletId("");
+    setNextDate("");
+    setRecurrence("MONTHLY");
     setError("");
+    setModal("FORM");
   };
 
   const handleEdit = (
@@ -166,13 +320,17 @@ export default function ScheduledExpensesClient({
     setEditingExpense(expense);
     setName(expense.name);
     setAmount(expense.amount);
-    setWalletId(expense.wallet.id);
+    setWalletId(
+      expense.wallet.id,
+    );
     setNextDate(
       expense.nextDate.slice(0, 10),
     );
-    setRecurrence(expense.recurrence);
-    setShowForm(true);
+    setRecurrence(
+      expense.recurrence,
+    );
     setError("");
+    setModal("FORM");
   };
 
   const handleSubmit = async (
@@ -181,6 +339,7 @@ export default function ScheduledExpensesClient({
     event.preventDefault();
 
     try {
+      setSaving(true);
       setError("");
 
       if (!name.trim()) {
@@ -201,7 +360,9 @@ export default function ScheduledExpensesClient({
       }
 
       if (!walletId) {
-        setError("Wallet wajib dipilih.");
+        setError(
+          "Wallet wajib dipilih.",
+        );
         return;
       }
 
@@ -220,22 +381,26 @@ export default function ScheduledExpensesClient({
         ? "PATCH"
         : "POST";
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type":
-            "application/json",
+      const response = await fetch(
+        url,
+        {
+          method,
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            name: name.trim(),
+            amount,
+            walletId,
+            nextDate,
+            recurrence,
+          }),
         },
-        body: JSON.stringify({
-          name: name.trim(),
-          amount,
-          walletId,
-          nextDate,
-          recurrence,
-        }),
-      });
+      );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -245,7 +410,6 @@ export default function ScheduledExpensesClient({
       }
 
       resetForm();
-
       await loadExpenses();
     } catch (err) {
       setError(
@@ -253,6 +417,8 @@ export default function ScheduledExpensesClient({
           ? err.message
           : "Terjadi kesalahan.",
       );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -260,6 +426,7 @@ export default function ScheduledExpensesClient({
     expense: ScheduledExpense,
   ) => {
     try {
+      setSaving(true);
       setError("");
 
       const response = await fetch(
@@ -271,12 +438,14 @@ export default function ScheduledExpensesClient({
               "application/json",
           },
           body: JSON.stringify({
-            isActive: !expense.isActive,
+            isActive:
+              !expense.isActive,
           }),
         },
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -285,6 +454,9 @@ export default function ScheduledExpensesClient({
         );
       }
 
+      setModal(null);
+      setSelectedExpense(null);
+
       await loadExpenses();
     } catch (err) {
       setError(
@@ -292,20 +464,16 @@ export default function ScheduledExpensesClient({
           ? err.message
           : "Terjadi kesalahan.",
       );
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (
     expense: ScheduledExpense,
   ) => {
-    const confirmed =
-      window.confirm(
-        `Hapus scheduled expense "${expense.name}"?`,
-      );
-
-    if (!confirmed) return;
-
     try {
+      setSaving(true);
       setError("");
 
       const response = await fetch(
@@ -315,7 +483,8 @@ export default function ScheduledExpensesClient({
         },
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -324,6 +493,9 @@ export default function ScheduledExpensesClient({
         );
       }
 
+      setModal(null);
+      setSelectedExpense(null);
+
       await loadExpenses();
     } catch (err) {
       setError(
@@ -331,409 +503,1031 @@ export default function ScheduledExpensesClient({
           ? err.message
           : "Terjadi kesalahan.",
       );
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <main className="min-h-screen p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">
-              Scheduled Expenses
-            </h1>
+    <div className="min-h-screen bg-muted/20">
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+        {/* =================================
+            HEADER
+        ================================== */}
 
-            <p className="mt-1 text-sm text-gray-500">
-              Kelola pengeluaran rutin dan
-              pembayaran yang akan datang.
-            </p>
-          </div>
+        <section className="relative overflow-hidden rounded-3xl border bg-card shadow-sm">
+          <div className="absolute right-0 top-0 h-44 w-44 translate-x-1/3 -translate-y-1/3 rounded-full bg-primary/10 blur-3xl" />
 
-          <button
-            type="button"
-            onClick={() => {
-              setEditingExpense(null);
-              setName("");
-              setAmount("");
-              setWalletId("");
-              setNextDate("");
-              setRecurrence("MONTHLY");
-              setShowForm(true);
-              setError("");
-            }}
-            className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-          >
-            + Tambah Pengeluaran
-          </button>
-        </div>
+          <div className="relative p-5 sm:p-7">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+                  <CalendarClock className="h-6 w-6" />
+                </div>
 
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+                    Scheduled Expenses
+                  </h1>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-gray-500">
-              Pengeluaran Aktif
-            </p>
-
-            <p className="mt-2 text-2xl font-bold">
-              {activeExpenses.length}
-            </p>
-          </div>
-
-          <div className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-gray-500">
-              Total Nominal
-            </p>
-
-            <p className="mt-2 text-2xl font-bold">
-              {formatRupiah(upcomingTotal)}
-            </p>
-
-            <p className="mt-1 text-xs text-gray-500">
-              Berdasarkan seluruh scheduled
-              expense aktif.
-            </p>
-          </div>
-
-          <div className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-gray-500">
-              Wallet Aktif
-            </p>
-
-            <p className="mt-2 text-2xl font-bold">
-              {wallets.length}
-            </p>
-          </div>
-        </div>
-
-        {showForm && (
-          <div className="rounded-xl border bg-white p-6">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">
-                  {editingExpense
-                    ? "Edit Scheduled Expense"
-                    : "Tambah Scheduled Expense"}
-                </h2>
-
-                <p className="mt-1 text-xs text-gray-500">
-                  Contoh: Internet Rp300.000
-                  setiap tanggal 10.
-                </p>
+                  <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
+                    Atur pengeluaran rutin dan
+                    pembayaran yang akan datang
+                    agar cashflow lebih mudah
+                    dipantau.
+                  </p>
+                </div>
               </div>
 
               <button
                 type="button"
-                onClick={resetForm}
-                className="text-sm text-gray-500 hover:text-black"
+                onClick={openCreateModal}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 active:scale-[0.98]"
               >
-                Batal
+                <Plus className="h-4 w-4" />
+                Tambah Pengeluaran
               </button>
             </div>
-
-            <form
-              onSubmit={handleSubmit}
-              className="grid gap-4 md:grid-cols-2"
-            >
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Nama Pengeluaran
-                </label>
-
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(event) =>
-                    setName(event.target.value)
-                  }
-                  placeholder="Contoh: Internet"
-                  className="w-full rounded-lg border px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Nominal
-                </label>
-
-                <input
-                  type="number"
-                  min="1"
-                  value={amount}
-                  onChange={(event) =>
-                    setAmount(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Contoh: 300000"
-                  className="w-full rounded-lg border px-3 py-2"
-                />
-
-                <p className="mt-1 text-xs text-gray-500">
-                  Masukkan angka tanpa titik
-                  atau simbol Rp.
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Wallet
-                </label>
-
-                <select
-                  value={walletId}
-                  onChange={(event) =>
-                    setWalletId(
-                      event.target.value,
-                    )
-                  }
-                  className="w-full rounded-lg border px-3 py-2"
-                >
-                  <option value="">
-                    Pilih wallet
-                  </option>
-
-                  {wallets.map((wallet) => (
-                    <option
-                      key={wallet.id}
-                      value={wallet.id}
-                    >
-                      {wallet.name} —{" "}
-                      {formatRupiah(
-                        wallet.balance,
-                      )}
-                    </option>
-                  ))}
-                </select>
-
-                <p className="mt-1 text-xs text-gray-500">
-                  Pengeluaran akan menggunakan
-                  wallet ini.
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Pengeluaran Berikutnya
-                </label>
-
-                <input
-                  type="date"
-                  value={nextDate}
-                  onChange={(event) =>
-                    setNextDate(
-                      event.target.value,
-                    )
-                  }
-                  className="w-full rounded-lg border px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Pengulangan
-                </label>
-
-                <select
-                  value={recurrence}
-                  onChange={(event) =>
-                    setRecurrence(
-                      event.target
-                        .value as Recurrence,
-                    )
-                  }
-                  className="w-full rounded-lg border px-3 py-2"
-                >
-                  <option value="DAILY">
-                    Setiap hari
-                  </option>
-
-                  <option value="WEEKLY">
-                    Setiap minggu
-                  </option>
-
-                  <option value="MONTHLY">
-                    Setiap bulan
-                  </option>
-
-                  <option value="YEARLY">
-                    Setiap tahun
-                  </option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  className="rounded-lg bg-black px-5 py-2 text-sm font-medium text-white hover:bg-gray-800"
-                >
-                  {editingExpense
-                    ? "Simpan Perubahan"
-                    : "Simpan Pengeluaran"}
-                </button>
-              </div>
-            </form>
           </div>
-        )}
+        </section>
 
-        {loading ? (
-          <div className="rounded-xl border bg-white p-10 text-center text-sm text-gray-500">
-            Memuat scheduled expenses...
-          </div>
-        ) : expenses.length === 0 ? (
-          <div className="rounded-xl border bg-white p-10 text-center">
-            <div className="text-4xl">📅</div>
+        {/* =================================
+            ERROR
+        ================================== */}
 
-            <h2 className="mt-3 font-semibold">
-              Belum ada scheduled expense
-            </h2>
+        {error && (
+          <div className="flex items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-600 dark:text-red-400">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
 
-            <p className="mt-1 text-sm text-gray-500">
-              Tambahkan pengeluaran rutin seperti
-              internet, kost, atau langganan.
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">
+                Terjadi kesalahan
+              </p>
+
+              <p className="mt-1 leading-5">
+                {error}
+              </p>
+            </div>
 
             <button
               type="button"
-              onClick={() =>
-                setShowForm(true)
-              }
-              className="mt-4 rounded-lg bg-black px-4 py-2 text-sm text-white"
+              onClick={() => setError("")}
+              className="rounded-lg p-1 transition hover:bg-red-500/10"
+              aria-label="Tutup pesan error"
             >
-              + Tambah Pengeluaran
+              <X className="h-4 w-4" />
             </button>
           </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {expenses.map((expense) => (
-              <div
-                key={expense.id}
-                className="rounded-xl border bg-white p-5"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">
-                        📅
-                      </span>
+        )}
 
-                      <h3 className="font-semibold">
-                        {expense.name}
-                      </h3>
-                    </div>
+        {/* =================================
+            SUMMARY
+        ================================== */}
 
-                    <p className="mt-1 text-xs text-gray-500">
-                      Wallet:{" "}
-                      {expense.wallet.name}
-                    </p>
-                  </div>
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <SummaryCard
+            label="Pengeluaran Aktif"
+            value={activeExpenses.length.toString()}
+            description="Jadwal yang sedang aktif"
+            icon={CalendarClock}
+            iconClass="bg-primary/10 text-primary"
+          />
 
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      expense.isActive
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {expense.isActive
-                      ? "Aktif"
-                      : "Nonaktif"}
-                  </span>
+          <SummaryCard
+            label="Total Nominal"
+            value={formatRupiah(
+              upcomingTotal,
+            )}
+            description="Dari seluruh jadwal aktif"
+            icon={RefreshCw}
+            iconClass="bg-blue-500/10 text-blue-600 dark:text-blue-400"
+          />
+
+          <SummaryCard
+            label="Wallet Terlibat"
+            value={involvedWallets.toString()}
+            description="Wallet yang digunakan"
+            icon={WalletCards}
+            iconClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          />
+
+          <SummaryCard
+            label="Terdekat"
+            value={
+              nearestExpense
+                ? formatShortDate(
+                    nearestExpense.nextDate,
+                  )
+                : "-"
+            }
+            description={
+              nearestExpense
+                ? nearestExpense.name
+                : "Belum ada jadwal"
+            }
+            icon={Clock3}
+            iconClass="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          />
+        </section>
+
+        {/* =================================
+            UPCOMING HIGHLIGHT
+        ================================== */}
+
+        {nearestExpense && (
+          <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Clock3 className="h-5 w-5" />
                 </div>
 
-                <div className="mt-5">
-                  <p className="text-sm text-gray-500">
-                    Nominal
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                    Pengeluaran Berikutnya
                   </p>
 
-                  <p className="text-2xl font-bold">
+                  <h2 className="mt-1 font-semibold">
+                    {nearestExpense.name}
+                  </h2>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {formatDate(
+                      nearestExpense.nextDate,
+                    )}{" "}
+                    ·{" "}
                     {formatRupiah(
-                      expense.amount,
+                      nearestExpense.amount,
                     )}
                   </p>
                 </div>
-
-                <div className="mt-5 space-y-3 border-t pt-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">
-                      Berikutnya
-                    </span>
-
-                    <span className="font-medium">
-                      {formatDate(
-                        expense.nextDate,
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">
-                      Pengulangan
-                    </span>
-
-                    <span>
-                      {formatRecurrence(
-                        expense.recurrence,
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">
-                      Saldo wallet
-                    </span>
-
-                    <span>
-                      {formatRupiah(
-                        expense.wallet
-                          .balance,
-                      )}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-2 border-t pt-4">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleEdit(expense)
-                    }
-                    className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50"
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleToggle(expense)
-                    }
-                    className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50"
-                  >
-                    {expense.isActive
-                      ? "Nonaktifkan"
-                      : "Aktifkan"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleDelete(expense)
-                    }
-                    className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                  >
-                    Hapus
-                  </button>
-                </div>
               </div>
-            ))}
-          </div>
+
+              <div className="flex items-center gap-2 rounded-xl bg-muted/60 px-3 py-2 text-xs font-medium">
+                {getDaysUntil(
+                  nearestExpense.nextDate,
+                ) === 0
+                  ? "Hari ini"
+                  : getDaysUntil(
+                        nearestExpense.nextDate,
+                      ) === 1
+                    ? "Besok"
+                    : `${getDaysUntil(
+                        nearestExpense.nextDate,
+                      )} hari lagi`}
+              </div>
+            </div>
+          </section>
         )}
+
+        {/* =================================
+            SECTION HEADER
+        ================================== */}
+
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <h2 className="text-base font-semibold">
+              Daftar Pengeluaran
+            </h2>
+
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Kelola semua jadwal pengeluaran
+              kamu.
+            </p>
+          </div>
+
+          <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+            {expenses.length} jadwal
+          </span>
+        </div>
+
+        {/* =================================
+            LOADING
+        ================================== */}
+
+        {loading ? (
+          <LoadingState />
+        ) : expenses.length === 0 ? (
+          <EmptyState
+            onAdd={openCreateModal}
+          />
+        ) : (
+          <section className="grid gap-4 lg:grid-cols-2">
+            {expenses.map(
+              (expense) => (
+                <ScheduledExpenseCard
+                  key={expense.id}
+                  expense={expense}
+                  onEdit={handleEdit}
+                  onToggle={(item) => {
+                    setSelectedExpense(
+                      item,
+                    );
+                    setModal("TOGGLE");
+                  }}
+                  onDelete={(item) => {
+                    setSelectedExpense(
+                      item,
+                    );
+                    setModal("DELETE");
+                  }}
+                />
+              ),
+            )}
+          </section>
+        )}
+
+        {/* =================================
+            FORM MODAL
+        ================================== */}
+
+        {modal === "FORM" && (
+          <ModalOverlay
+            onClose={() => {
+              if (!saving) {
+                resetForm();
+              }
+            }}
+          >
+            <div className="w-full max-w-2xl overflow-hidden rounded-3xl border bg-card shadow-2xl">
+              <div className="flex items-start justify-between border-b p-5 sm:p-6">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      {editingExpense ? (
+                        <Edit3 className="h-5 w-5" />
+                      ) : (
+                        <Plus className="h-5 w-5" />
+                      )}
+                    </div>
+
+                    <div>
+                      <h2 className="font-semibold">
+                        {editingExpense
+                          ? "Edit Scheduled Expense"
+                          : "Tambah Scheduled Expense"}
+                      </h2>
+
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Atur detail pengeluaran
+                        rutin kamu.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={resetForm}
+                  className="rounded-xl p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  aria-label="Tutup modal"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleSubmit}
+                className="space-y-5 p-5 sm:p-6"
+              >
+                {error && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-600 dark:text-red-400">
+                    {error}
+                  </div>
+                )}
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <FormField
+                    label="Nama Pengeluaran"
+                    description="Gunakan nama yang mudah dikenali."
+                  >
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(event) =>
+                        setName(
+                          event.target
+                            .value,
+                        )
+                      }
+                      placeholder="Contoh: Internet"
+                      className="input-sharkfin"
+                      disabled={saving}
+                    />
+                  </FormField>
+
+                  <FormField
+                    label="Nominal"
+                    description="Masukkan angka tanpa titik atau Rp."
+                  >
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        value={amount}
+                        onChange={(event) =>
+                          setAmount(
+                            event.target
+                              .value,
+                          )
+                        }
+                        placeholder="Contoh: 300000"
+                        className="input-sharkfin pr-16"
+                        disabled={saving}
+                      />
+
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                        IDR
+                      </span>
+                    </div>
+                  </FormField>
+
+                  <FormField
+                    label="Wallet"
+                    description="Wallet yang akan digunakan untuk pengeluaran."
+                  >
+                    <select
+                      value={walletId}
+                      onChange={(event) =>
+                        setWalletId(
+                          event.target
+                            .value,
+                        )
+                      }
+                      className="input-sharkfin"
+                      disabled={saving}
+                    >
+                      <option value="">
+                        Pilih wallet
+                      </option>
+
+                      {wallets.map(
+                        (wallet) => (
+                          <option
+                            key={
+                              wallet.id
+                            }
+                            value={
+                              wallet.id
+                            }
+                          >
+                            {wallet.name} —{" "}
+                            {formatRupiah(
+                              wallet.balance,
+                            )}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </FormField>
+
+                  <FormField
+                    label="Pengeluaran Berikutnya"
+                    description="Tanggal pembayaran berikutnya."
+                  >
+                    <input
+                      type="date"
+                      value={nextDate}
+                      onChange={(event) =>
+                        setNextDate(
+                          event.target
+                            .value,
+                        )
+                      }
+                      className="input-sharkfin"
+                      disabled={saving}
+                    />
+                  </FormField>
+
+                  <FormField
+                    label="Pengulangan"
+                    description={getRecurrenceDescription(
+                      recurrence,
+                    )}
+                  >
+                    <select
+                      value={recurrence}
+                      onChange={(event) =>
+                        setRecurrence(
+                          event.target
+                            .value as Recurrence,
+                        )
+                      }
+                      className="input-sharkfin"
+                      disabled={saving}
+                    >
+                      <option value="DAILY">
+                        Setiap hari
+                      </option>
+
+                      <option value="WEEKLY">
+                        Setiap minggu
+                      </option>
+
+                      <option value="MONTHLY">
+                        Setiap bulan
+                      </option>
+
+                      <option value="YEARLY">
+                        Setiap tahun
+                      </option>
+                    </select>
+                  </FormField>
+                </div>
+
+                <div className="rounded-xl border bg-muted/30 p-4">
+                  <div className="flex items-start gap-3">
+                    <Repeat2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Scheduled Expense digunakan
+                      untuk mencatat kewajiban
+                      yang akan datang. Saat ini
+                      jadwal belum otomatis
+                      membuat transaksi pengeluaran.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={resetForm}
+                    className="h-10 rounded-xl border px-4 text-sm font-medium transition hover:bg-muted disabled:opacity-50"
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {saving && (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    )}
+
+                    {editingExpense
+                      ? "Simpan Perubahan"
+                      : "Simpan Pengeluaran"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </ModalOverlay>
+        )}
+
+        {/* =================================
+            DELETE MODAL
+        ================================== */}
+
+        {modal === "DELETE" &&
+          selectedExpense && (
+            <ModalOverlay
+              onClose={() => {
+                if (!saving) {
+                  setModal(null);
+                  setSelectedExpense(
+                    null,
+                  );
+                }
+              }}
+            >
+              <ConfirmationModal
+                icon={Trash2}
+                title="Hapus Scheduled Expense?"
+                description={
+                  <>
+                    Kamu akan menghapus{" "}
+                    <strong className="text-foreground">
+                      {selectedExpense.name}
+                    </strong>
+                    . Tindakan ini tidak dapat
+                    dibatalkan.
+                  </>
+                }
+                confirmLabel="Ya, Hapus"
+                loading={saving}
+                danger
+                onCancel={() => {
+                  setModal(null);
+                  setSelectedExpense(
+                    null,
+                  );
+                }}
+                onConfirm={() =>
+                  handleDelete(
+                    selectedExpense,
+                  )
+                }
+              />
+            </ModalOverlay>
+          )}
+
+        {/* =================================
+            TOGGLE MODAL
+        ================================== */}
+
+        {modal === "TOGGLE" &&
+          selectedExpense && (
+            <ModalOverlay
+              onClose={() => {
+                if (!saving) {
+                  setModal(null);
+                  setSelectedExpense(
+                    null,
+                  );
+                }
+              }}
+            >
+              <ConfirmationModal
+                icon={
+                  selectedExpense.isActive
+                    ? Clock3
+                    : Check
+                }
+                title={
+                  selectedExpense.isActive
+                    ? "Nonaktifkan Jadwal?"
+                    : "Aktifkan Jadwal?"
+                }
+                description={
+                  selectedExpense.isActive
+                    ? `Jadwal "${selectedExpense.name}" tidak akan dianggap sebagai kewajiban aktif sampai kamu mengaktifkannya kembali.`
+                    : `Jadwal "${selectedExpense.name}" akan kembali menjadi pengeluaran aktif.`
+                }
+                confirmLabel={
+                  selectedExpense.isActive
+                    ? "Nonaktifkan"
+                    : "Aktifkan"
+                }
+                loading={saving}
+                onCancel={() => {
+                  setModal(null);
+                  setSelectedExpense(
+                    null,
+                  );
+                }}
+                onConfirm={() =>
+                  handleToggle(
+                    selectedExpense,
+                  )
+                }
+              />
+            </ModalOverlay>
+          )}
       </div>
-    </main>
+    </div>
+  );
+}
+
+/* =================================
+   SUMMARY CARD
+================================= */
+
+function SummaryCard({
+  label,
+  value,
+  description,
+  icon: Icon,
+  iconClass,
+}: {
+  label: string;
+  value: string;
+  description: string;
+  icon: React.ComponentType<{
+    className?: string;
+  }>;
+  iconClass: string;
+}) {
+  return (
+    <div className="group rounded-2xl border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-muted-foreground">
+            {label}
+          </p>
+
+          <p className="mt-2 truncate text-2xl font-bold tracking-tight">
+            {value}
+          </p>
+        </div>
+
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconClass}`}
+        >
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+
+      <p className="mt-3 truncate text-xs text-muted-foreground">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+/* =================================
+   SCHEDULED EXPENSE CARD
+================================= */
+
+function ScheduledExpenseCard({
+  expense,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  expense: ScheduledExpense;
+  onEdit: (
+    expense: ScheduledExpense,
+  ) => void;
+  onToggle: (
+    expense: ScheduledExpense,
+  ) => void;
+  onDelete: (
+    expense: ScheduledExpense,
+  ) => void;
+}) {
+  const upcoming = isUpcoming(
+    expense.nextDate,
+  );
+
+  return (
+    <article
+      className={`group relative overflow-hidden rounded-2xl border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-6 ${
+        expense.isActive
+          ? ""
+          : "opacity-75"
+      }`}
+    >
+      {expense.isActive && (
+        <div className="absolute left-0 top-0 h-full w-1 bg-primary" />
+      )}
+
+      <div className="pl-1">
+        {/* CARD HEADER */}
+
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                expense.isActive
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              <CalendarClock className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="truncate font-semibold">
+                  {expense.name}
+                </h3>
+
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                    expense.isActive
+                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : "border-border bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {expense.isActive
+                    ? "Aktif"
+                    : "Nonaktif"}
+                </span>
+              </div>
+
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <WalletCards className="h-3.5 w-3.5" />
+
+                <span className="truncate">
+                  {expense.wallet.name}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <span className="shrink-0 rounded-lg bg-muted/60 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
+            {formatRecurrence(
+              expense.recurrence,
+            )}
+          </span>
+        </div>
+
+        {/* AMOUNT */}
+
+        <div className="mt-6">
+          <p className="text-xs font-medium text-muted-foreground">
+            Nominal
+          </p>
+
+          <p className="mt-1 text-2xl font-bold tracking-tight">
+            {formatRupiah(
+              expense.amount,
+            )}
+          </p>
+        </div>
+
+        {/* DETAILS */}
+
+        <div className="mt-5 grid gap-3 border-t pt-4 sm:grid-cols-2">
+          <div className="rounded-xl bg-muted/40 p-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CalendarClock className="h-3.5 w-3.5" />
+
+              <span>
+                Pengeluaran berikutnya
+              </span>
+            </div>
+
+            <p className="mt-1.5 text-sm font-medium">
+              {formatDate(
+                expense.nextDate,
+              )}
+            </p>
+
+            {upcoming &&
+              expense.isActive && (
+                <p className="mt-1 text-xs font-medium text-primary">
+                  Segera jatuh tempo
+                </p>
+              )}
+          </div>
+
+          <div className="rounded-xl bg-muted/40 p-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <WalletCards className="h-3.5 w-3.5" />
+
+              <span>
+                Saldo wallet
+              </span>
+            </div>
+
+            <p className="mt-1.5 text-sm font-medium">
+              {formatRupiah(
+                expense.wallet
+                  .balance,
+              )}
+            </p>
+          </div>
+        </div>
+
+        {/* ACTIONS */}
+
+        <div className="mt-5 flex flex-wrap items-center gap-2 border-t pt-4">
+          <button
+            type="button"
+            onClick={() =>
+              onEdit(expense)
+            }
+            className="inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition hover:bg-muted"
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+            Edit
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              onToggle(expense)
+            }
+            className="inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition hover:bg-muted"
+          >
+            {expense.isActive ? (
+              <>
+                <Clock3 className="h-3.5 w-3.5" />
+                Nonaktifkan
+              </>
+            ) : (
+              <>
+                <Check className="h-3.5 w-3.5" />
+                Aktifkan
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              onDelete(expense)
+            }
+            className="ml-auto inline-flex h-9 items-center gap-2 rounded-xl border border-red-500/20 px-3 text-xs font-medium text-red-600 transition hover:bg-red-500/5 dark:text-red-400"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Hapus
+          </button>
+
+          <ChevronRight className="hidden h-4 w-4 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 sm:block" />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/* =================================
+   FORM FIELD
+================================= */
+
+function FormField({
+  label,
+  description,
+  children,
+}: {
+  label: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium">
+        {label}
+      </label>
+
+      {children}
+
+      <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+/* =================================
+   MODAL OVERLAY
+================================= */
+
+function ModalOverlay({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (
+          event.target ===
+          event.currentTarget
+        ) {
+          onClose();
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* =================================
+   CONFIRMATION MODAL
+================================= */
+
+function ConfirmationModal({
+  icon: Icon,
+  title,
+  description,
+  confirmLabel,
+  loading,
+  danger = false,
+  onCancel,
+  onConfirm,
+}: {
+  icon: React.ComponentType<{
+    className?: string;
+  }>;
+  title: string;
+  description: React.ReactNode;
+  confirmLabel: string;
+  loading: boolean;
+  danger?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="w-full max-w-md rounded-3xl border bg-card p-6 shadow-2xl">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+        <Icon className="h-5 w-5" />
+      </div>
+
+      <h2 className="mt-5 text-lg font-semibold">
+        {title}
+      </h2>
+
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        {description}
+      </p>
+
+      <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          disabled={loading}
+          onClick={onCancel}
+          className="h-10 rounded-xl border px-4 text-sm font-medium transition hover:bg-muted disabled:opacity-50"
+        >
+          Batal
+        </button>
+
+        <button
+          type="button"
+          disabled={loading}
+          onClick={onConfirm}
+          className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+            danger
+              ? "bg-red-600 hover:bg-red-700"
+              : "bg-primary hover:opacity-90"
+          }`}
+        >
+          {loading && (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          )}
+
+          {confirmLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* =================================
+   EMPTY STATE
+================================= */
+
+function EmptyState({
+  onAdd,
+}: {
+  onAdd: () => void;
+}) {
+  return (
+    <section className="rounded-3xl border border-dashed bg-card p-8 text-center shadow-sm sm:p-12">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+        <CalendarClock className="h-7 w-7" />
+      </div>
+
+      <h2 className="mt-5 text-base font-semibold">
+        Belum ada pengeluaran terjadwal
+      </h2>
+
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+        Tambahkan pengeluaran rutin seperti
+        internet, kost, cicilan, atau
+        langganan agar kewajiban yang akan
+        datang lebih mudah dipantau.
+      </p>
+
+      <button
+        type="button"
+        onClick={onAdd}
+        className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+      >
+        <Plus className="h-4 w-4" />
+        Tambah Pengeluaran
+      </button>
+    </section>
+  );
+}
+
+/* =================================
+   LOADING STATE
+================================= */
+
+function LoadingState() {
+  return (
+    <section className="grid gap-4 lg:grid-cols-2">
+      {Array.from({
+        length: 4,
+      }).map((_, index) => (
+        <div
+          key={index}
+          className="animate-pulse rounded-2xl border bg-card p-6"
+        >
+          <div className="flex items-start gap-3">
+            <div className="h-11 w-11 rounded-xl bg-muted" />
+
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-40 rounded bg-muted" />
+
+              <div className="h-3 w-28 rounded bg-muted" />
+            </div>
+
+            <div className="h-6 w-16 rounded-full bg-muted" />
+          </div>
+
+          <div className="mt-6 h-7 w-36 rounded bg-muted" />
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="h-20 rounded-xl bg-muted" />
+
+            <div className="h-20 rounded-xl bg-muted" />
+          </div>
+
+          <div className="mt-5 h-10 rounded-xl bg-muted" />
+        </div>
+      ))}
+    </section>
   );
 }
