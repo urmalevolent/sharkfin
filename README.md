@@ -383,7 +383,7 @@ SharkFin dibangun menggunakan teknologi berikut:
 
 ---
 
-# 📸 Screenshots
+# 📸 Screenshots 
 
 Berikut merupakan contoh tampilan antarmuka aplikasi **SharkFin**.
 
