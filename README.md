@@ -506,29 +506,25 @@ SharkFin dibangun menggunakan teknologi berikut:
 
 ---
 
-**# 📸 Screenshots
+# 📸 Screenshots
 
-🚧 Coming Soon
+> 🚧 **Coming Soon**
+>
+> Screenshot aplikasi **SharkFin** akan ditambahkan setelah proses penyempurnaan tampilan dan sistem selesai.
 
-Screenshot aplikasi SharkFin akan ditambahkan setelah tampilan dan sistem utama selesai disempurnakan.
+Saat ini SharkFin masih dalam tahap pengembangan dan beberapa bagian aplikasi masih terus disempurnakan, sehingga screenshot final belum ditampilkan pada README.
 
-Saat ini SharkFin masih dalam tahap pengembangan dan penyempurnaan beberapa bagian, termasuk:
+Screenshot akan mencakup beberapa bagian utama aplikasi seperti:
 
-🏠 Dashboard
+- 🏠 Dashboard
+- 👛 Wallet
+- 💰 Transactions
+- 📊 Budget Management
+- 🎯 Financial Goals
+- 🧠 SharkFin Insights
+- 🤖 Ask SharkFin
 
-👛 Wallet Management
-
-💰 Transaction Management
-
-📊 Budget Management
-
-🎯 Financial Goals
-
-🧠 SharkFin Insights
-
-🤖 Ask SharkFin
-
-Screenshot akan diperbarui setelah tampilan dan fitur utama mencapai tahap yang lebih final.
+---
 
 🚀 Instalasi**
 
