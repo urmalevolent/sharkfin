@@ -124,7 +124,9 @@ export default function AskSharkFinModal({
 
   const [conversationId, setConversationId] = useState<string | null>(null);
 
-  const [conversationTitle, setConversationTitle] = useState("Percakapan Baru");
+  const [conversationTitle, setConversationTitle] = useState(
+    "Percakapan Baru",
+  );
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
 
@@ -352,7 +354,13 @@ export default function AskSharkFinModal({
   useEffect(() => {
     if (!open) return;
 
-    loadConversations();
+    const timeoutId = window.setTimeout(() => {
+      void loadConversations();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [open]);
 
   /* =======================================================
@@ -896,11 +904,11 @@ export default function AskSharkFinModal({
                         <div
                           key={item}
                           className="
-                              h-14
-                              animate-pulse
-                              rounded-xl
-                              bg-muted
-                            "
+                            h-14
+                            animate-pulse
+                            rounded-xl
+                            bg-muted
+                          "
                         />
                       ))}
                     </div>
@@ -931,8 +939,8 @@ export default function AskSharkFinModal({
                       </p>
 
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        Percakapan yang kamu lakukan dengan SharkFin akan muncul
-                        di sini.
+                        Percakapan yang kamu lakukan dengan SharkFin akan
+                        muncul di sini.
                       </p>
                     </div>
                   ) : (
@@ -951,35 +959,35 @@ export default function AskSharkFinModal({
                               isCreatingConversation
                             }
                             className={`
-                                group flex w-full
-                                items-start gap-3
-                                rounded-xl
-                                px-3 py-3
-                                text-left
-                                transition
+                              group flex w-full
+                              items-start gap-3
+                              rounded-xl
+                              px-3 py-3
+                              text-left
+                              transition
 
-                                ${
-                                  active
-                                    ? "bg-primary/10 text-primary"
-                                    : "hover:bg-muted"
-                                }
+                              ${
+                                active
+                                  ? "bg-primary/10 text-primary"
+                                  : "hover:bg-muted"
+                              }
 
-                                disabled:cursor-not-allowed
-                                disabled:opacity-60
-                              `}
+                              disabled:cursor-not-allowed
+                              disabled:opacity-60
+                            `}
                           >
                             <MessageSquare
                               className={`
-                                  mt-0.5
-                                  h-4 w-4
-                                  shrink-0
+                                mt-0.5
+                                h-4 w-4
+                                shrink-0
 
-                                  ${
-                                    active
-                                      ? "text-primary"
-                                      : "text-muted-foreground"
-                                  }
-                                `}
+                                ${
+                                  active
+                                    ? "text-primary"
+                                    : "text-muted-foreground"
+                                }
+                              `}
                             />
 
                             <div className="min-w-0 flex-1">
@@ -1262,20 +1270,20 @@ export default function AskSharkFinModal({
                         <div
                           key={message.id}
                           className={`
-                              flex gap-3
-                              ${isUser ? "justify-end" : "justify-start"}
-                            `}
+                            flex gap-3
+                            ${isUser ? "justify-end" : "justify-start"}
+                          `}
                         >
                           {!isUser && (
                             <div
                               className="
-                                  flex h-8 w-8
-                                  shrink-0
-                                  items-center
-                                  justify-center
-                                  rounded-full
-                                  bg-primary/10
-                                "
+                                flex h-8 w-8
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-full
+                                bg-primary/10
+                              "
                             >
                               <Bot className="h-4 w-4 text-primary" />
                             </div>
@@ -1283,27 +1291,27 @@ export default function AskSharkFinModal({
 
                           <div
                             className={`
-                                max-w-[85%]
-                                rounded-2xl
-                                px-4 py-3
-                                text-sm
-                                leading-6
-                                shadow-sm
+                              max-w-[85%]
+                              rounded-2xl
+                              px-4 py-3
+                              text-sm
+                              leading-6
+                              shadow-sm
 
-                                ${
-                                  isUser
-                                    ? `
-                                      rounded-br-md
-                                      bg-primary
-                                      text-primary-foreground
-                                    `
-                                    : `
-                                      rounded-bl-md
-                                      border
-                                      bg-card
-                                    `
-                                }
-                              `}
+                              ${
+                                isUser
+                                  ? `
+                                    rounded-br-md
+                                    bg-primary
+                                    text-primary-foreground
+                                  `
+                                  : `
+                                    rounded-bl-md
+                                    border
+                                    bg-card
+                                  `
+                              }
+                            `}
                           >
                             {message.content.split("\n").map((line, index) => (
                               <p
@@ -1318,13 +1326,13 @@ export default function AskSharkFinModal({
                           {isUser && (
                             <div
                               className="
-                                  flex h-8 w-8
-                                  shrink-0
-                                  items-center
-                                  justify-center
-                                  rounded-full
-                                  bg-muted
-                                "
+                                flex h-8 w-8
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-full
+                                bg-muted
+                              "
                             >
                               <User className="h-4 w-4" />
                             </div>
@@ -1432,20 +1440,20 @@ export default function AskSharkFinModal({
                                 sendQuestion(undefined, item.label)
                               }
                               className="
-                                  flex
-                                  shrink-0
-                                  items-center
-                                  gap-2
-                                  rounded-xl
-                                  border
-                                  bg-card
-                                  px-3 py-2
-                                  text-xs
-                                  transition
-                                  hover:bg-muted
-                                  disabled:cursor-not-allowed
-                                  disabled:opacity-50
-                                "
+                                flex
+                                shrink-0
+                                items-center
+                                gap-2
+                                rounded-xl
+                                border
+                                bg-card
+                                px-3 py-2
+                                text-xs
+                                transition
+                                hover:bg-muted
+                                disabled:cursor-not-allowed
+                                disabled:opacity-50
+                              "
                             >
                               <Icon className="h-3.5 w-3.5 text-muted-foreground" />
 

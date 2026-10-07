@@ -234,6 +234,8 @@ export default function ScheduledExpensesClient({
     [activeExpenses],
   );
 
+  const [currentTime] = useState(() => Date.now());
+
   const nearestExpense = useMemo(() => {
     const upcoming =
       activeExpenses
@@ -241,8 +243,7 @@ export default function ScheduledExpensesClient({
           (expense) =>
             new Date(
               expense.nextDate,
-            ).getTime() >=
-            Date.now(),
+            ).getTime() >= currentTime,
         )
         .sort(
           (a, b) =>
@@ -255,7 +256,7 @@ export default function ScheduledExpensesClient({
         );
 
     return upcoming[0] ?? null;
-  }, [activeExpenses]);
+  }, [activeExpenses, currentTime]);
 
   const loadExpenses = async () => {
     try {

@@ -1,11 +1,17 @@
 "use client";
 
 import {
+  Dispatch,
   FormEvent,
+  SetStateAction,
+  useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
+
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import {
   Bot,
@@ -95,6 +101,535 @@ function getWelcomeMessage(userName: string): Message {
   };
 }
 
+function SharkFinMessage({ content }: { content: string }) {
+  return (
+    <div className="text-sm leading-6 text-foreground">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          p: ({ children }) => (
+            <p className="mb-3 last:mb-0">{children}</p>
+          ),
+          strong: ({ children }) => (
+            <strong className="font-semibold text-foreground">
+              {children}
+            </strong>
+          ),
+          em: ({ children }) => (
+            <em className="italic">{children}</em>
+          ),
+          h1: ({ children }) => (
+            <h1 className="mb-3 text-base font-bold text-foreground">
+              {children}
+            </h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className="mb-3 text-base font-bold text-foreground">
+              {children}
+            </h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className="mb-2 text-sm font-semibold text-foreground">
+              {children}
+            </h3>
+          ),
+          ul: ({ children }) => (
+            <ul className="mb-3 ml-5 list-disc space-y-1.5 last:mb-0">
+              {children}
+            </ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="mb-3 ml-5 list-decimal space-y-1.5 last:mb-0">
+              {children}
+            </ol>
+          ),
+          li: ({ children }) => (
+            <li className="pl-1">{children}</li>
+          ),
+          blockquote: ({ children }) => (
+            <blockquote className="my-3 border-l-2 border-primary/40 pl-3 text-muted-foreground">
+              {children}
+            </blockquote>
+          ),
+          code: ({ children, className }) => (
+            <code
+              className={`${
+                className ?? ""
+              } rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.85em]`}
+            >
+              {children}
+            </code>
+          ),
+          pre: ({ children }) => (
+            <pre className="my-3 overflow-x-auto rounded-xl border bg-muted/60 p-3 font-mono text-xs leading-5">
+              {children}
+            </pre>
+          ),
+          hr: () => (
+            <hr className="my-4 border-border" />
+          ),
+          a: ({ children, href }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary underline underline-offset-2"
+            >
+              {children}
+            </a>
+          ),
+          table: ({ children }) => (
+            <div className="my-3 w-full overflow-x-auto rounded-xl border">
+              <table className="w-full min-w-[420px] text-left text-xs">
+                {children}
+              </table>
+            </div>
+          ),
+          thead: ({ children }) => (
+            <thead className="bg-muted/60">{children}</thead>
+          ),
+          th: ({ children }) => (
+            <th className="border-b px-3 py-2 font-semibold text-foreground">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="border-b px-3 py-2 align-top text-muted-foreground last:border-b-0">
+              {children}
+            </td>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+type ConversationListProps = {
+  mobile?: boolean;
+  conversations: Conversation[];
+  conversationId: string | null;
+  isLoadingConversations: boolean;
+  isLoadingConversation: boolean;
+  isDeletingConversation: boolean;
+  editingConversationId: string | null;
+  editingTitle: string;
+  isSavingTitle: boolean;
+  openConversationMenu: string | null;
+  startNewConversation: () => void;
+  loadConversation: (id: string) => Promise<void>;
+  toggleConversationMenu: (id: string) => void;
+  setEditingTitle: Dispatch<SetStateAction<string>>;
+  saveConversationTitle: (id: string) => Promise<void>;
+  cancelRenameConversation: () => void;
+  startRenameConversation: (conversation: Conversation) => void;
+  deleteConversation: (id: string) => Promise<void>;
+};
+
+function ConversationList({
+  mobile = false,
+  conversations,
+  conversationId,
+  isLoadingConversations,
+  isLoadingConversation,
+  isDeletingConversation,
+  editingConversationId,
+  editingTitle,
+  isSavingTitle,
+  openConversationMenu,
+  startNewConversation,
+  loadConversation,
+  toggleConversationMenu,
+  setEditingTitle,
+  saveConversationTitle,
+  cancelRenameConversation,
+  startRenameConversation,
+  deleteConversation,
+}: ConversationListProps) {
+  return (
+    <div className="flex h-full flex-col">
+      {/* LIST HEADER */}
+
+      {!mobile && (
+        <div className="border-b px-4 py-4">
+          <button
+            type="button"
+            onClick={
+              startNewConversation
+            }
+            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+
+            New Conversation
+          </button>
+        </div>
+      )}
+
+      {mobile && (
+        <div className="border-b p-3">
+          <button
+            type="button"
+            onClick={
+              startNewConversation
+            }
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" />
+
+            New Conversation
+          </button>
+        </div>
+      )}
+
+      {/* LIST */}
+
+      <div className="flex-1 overflow-y-auto p-3">
+        <div className="mb-3 flex items-center justify-between px-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Conversations
+            </p>
+
+            {conversations.length >
+              0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {conversations.length}{" "}
+                percakapan
+              </p>
+            )}
+          </div>
+
+          <MessageSquare className="h-4 w-4 text-muted-foreground/60" />
+        </div>
+
+        {isLoadingConversations ? (
+          <div className="space-y-2">
+            {Array.from({
+              length: 4,
+            }).map((_, index) => (
+              <div
+                key={index}
+                className="animate-pulse rounded-xl border border-transparent p-3"
+              >
+                <div className="flex gap-3">
+                  <div className="h-8 w-8 shrink-0 rounded-lg bg-muted" />
+
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-3 w-3/4 rounded bg-muted" />
+
+                    <div className="h-2.5 w-1/2 rounded bg-muted" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : conversations.length ===
+          0 ? (
+          <div className="rounded-2xl border border-dashed bg-background/60 px-4 py-10 text-center">
+            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+              <MessageSquare className="h-5 w-5 text-primary" />
+            </div>
+
+            <p className="text-sm font-semibold">
+              Belum ada percakapan
+            </p>
+
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Mulai percakapan baru
+              dengan SharkFin.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {conversations.map(
+              (conversation) => {
+                const isActive =
+                  conversation.id ===
+                  conversationId;
+
+                const isEditing =
+                  editingConversationId ===
+                  conversation.id;
+
+                const isMenuOpen =
+                  openConversationMenu ===
+                  conversation.id;
+
+                return (
+                  <div
+                    key={
+                      conversation.id
+                    }
+                    className={`group relative rounded-xl border transition-all ${
+                      isActive
+                        ? "border-primary/20 bg-primary/10 shadow-sm"
+                        : "border-transparent hover:border-border hover:bg-background"
+                    }`}
+                  >
+                    {!isEditing ? (
+                      <div className="flex items-center">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            loadConversation(
+                              conversation.id,
+                            )
+                          }
+                          disabled={
+                            isLoadingConversation ||
+                            isDeletingConversation
+                          }
+                          className="min-w-0 flex-1 px-3 py-3 text-left disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                                isActive
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              <MessageSquare className="h-4 w-4" />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className={`truncate text-sm font-medium ${
+                                  isActive
+                                    ? "text-primary"
+                                    : "text-foreground"
+                                }`}
+                              >
+                                {conversation.title ||
+                                  "Percakapan Baru"}
+                              </p>
+
+                              <div className="mt-1 flex items-center gap-1.5">
+                                <span className="text-xs text-muted-foreground">
+                                  {conversation
+                                    ._count
+                                    ?.messages ??
+                                    0}{" "}
+                                  pesan
+                                </span>
+
+                                {isActive && (
+                                  <>
+                                    <span className="h-1 w-1 rounded-full bg-primary/60" />
+
+                                    <span className="text-[10px] font-medium text-primary">
+                                      Aktif
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <ChevronRight
+                              className={`mt-1 h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform ${
+                                isActive
+                                  ? "translate-x-0 text-primary"
+                                  : "-translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
+                              }`}
+                            />
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          aria-label="Conversation actions"
+                          onClick={(
+                            event,
+                          ) => {
+                            event.stopPropagation();
+
+                            toggleConversationMenu(
+                              conversation.id,
+                            );
+                          }}
+                          disabled={
+                            isDeletingConversation
+                          }
+                          className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground group-hover:opacity-100 focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-3">
+                        <div className="mb-2 flex items-center gap-2">
+                          <Pencil className="h-4 w-4 shrink-0 text-primary" />
+
+                          <span className="text-xs font-medium">
+                            Rename conversation
+                          </span>
+                        </div>
+
+                        <input
+                          type="text"
+                          value={
+                            editingTitle
+                          }
+                          onChange={(
+                            event,
+                          ) =>
+                            setEditingTitle(
+                              event.target
+                                .value,
+                            )
+                          }
+                          onKeyDown={(
+                            event,
+                          ) => {
+                            if (
+                              event.key ===
+                              "Enter"
+                            ) {
+                              event.preventDefault();
+
+                              if (
+                                editingTitle.trim()
+                              ) {
+                                saveConversationTitle(
+                                  conversation.id,
+                                );
+                              }
+                            }
+
+                            if (
+                              event.key ===
+                              "Escape"
+                            ) {
+                              cancelRenameConversation();
+                            }
+                          }}
+                          maxLength={100}
+                          autoFocus
+                          disabled={
+                            isSavingTitle
+                          }
+                          placeholder="Nama conversation..."
+                          className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                        />
+
+                        <div className="mt-2 flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={
+                              cancelRenameConversation
+                            }
+                            disabled={
+                              isSavingTitle
+                            }
+                            className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+                          >
+                            <X className="h-3.5 w-3.5" />
+
+                            Batal
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              saveConversationTitle(
+                                conversation.id,
+                              )
+                            }
+                            disabled={
+                              !editingTitle.trim() ||
+                              isSavingTitle
+                            }
+                            className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-2.5 text-xs font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {isSavingTitle ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Check className="h-3.5 w-3.5" />
+                            )}
+
+                            Simpan
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {isMenuOpen &&
+                      !isEditing && (
+                        <div
+                          className="absolute right-2 top-12 z-50 w-40 overflow-hidden rounded-xl border bg-background p-1.5 shadow-xl"
+                          onClick={(
+                            event,
+                          ) =>
+                            event.stopPropagation()
+                          }
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              startRenameConversation(
+                                conversation,
+                              )
+                            }
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition hover:bg-muted"
+                          >
+                            <Pencil className="h-4 w-4" />
+
+                            Rename
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteConversation(
+                                conversation.id,
+                              )
+                            }
+                            disabled={
+                              isDeletingConversation
+                            }
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-destructive transition hover:bg-destructive/10 disabled:opacity-50"
+                          >
+                            {isDeletingConversation ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                  </div>
+                );
+              },
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* SIDEBAR FOOTER */}
+
+      {!mobile && (
+        <div className="border-t p-3">
+          <div className="flex items-center gap-2 rounded-xl bg-primary/5 px-3 py-2.5">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
+
+            <p className="text-[11px] leading-4 text-muted-foreground">
+              Percakapanmu digunakan
+              untuk memberikan konteks
+              yang lebih relevan.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
 export default function AskSharkFinClient({
   userName,
 }: Props) {
@@ -183,69 +718,11 @@ export default function AskSharkFinClient({
   ]);
 
   // ========================================================
-  // LOAD CONVERSATIONS
-  // ========================================================
-
-  async function loadConversations(
-    selectLatest = true,
-  ) {
-    try {
-      setIsLoadingConversations(true);
-
-      const response = await fetch(
-        "/api/ai/conversations",
-        {
-          method: "GET",
-          cache: "no-store",
-        },
-      );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            "Gagal mengambil conversation.",
-        );
-      }
-
-      const loadedConversations: Conversation[] =
-        Array.isArray(
-          data.conversations,
-        )
-          ? data.conversations
-          : [];
-
-      setConversations(
-        loadedConversations,
-      );
-
-      if (
-        selectLatest &&
-        loadedConversations.length > 0
-      ) {
-        await loadConversation(
-          loadedConversations[0].id,
-        );
-      }
-    } catch (error) {
-      console.error(
-        "Load Conversations Error:",
-        error,
-      );
-    } finally {
-      setIsLoadingConversations(false);
-    }
-  }
-
-  // ========================================================
   // LOAD SINGLE CONVERSATION
   // ========================================================
 
-  async function loadConversation(
-    id: string,
-  ) {
+  const loadConversation = useCallback(
+    async (id: string) => {
     try {
       setIsLoadingConversation(true);
 
@@ -336,15 +813,76 @@ export default function AskSharkFinClient({
     } finally {
       setIsLoadingConversation(false);
     }
-  }
+  }, [userName]);
+
+
+  // ========================================================
+  // LOAD CONVERSATIONS
+  // ========================================================
+
+  const loadConversations = useCallback(
+    async (selectLatest = true) => {
+    try {
+      setIsLoadingConversations(true);
+
+      const response = await fetch(
+        "/api/ai/conversations",
+        {
+          method: "GET",
+          cache: "no-store",
+        },
+      );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            "Gagal mengambil conversation.",
+        );
+      }
+
+      const loadedConversations: Conversation[] =
+        Array.isArray(
+          data.conversations,
+        )
+          ? data.conversations
+          : [];
+
+      setConversations(
+        loadedConversations,
+      );
+
+      if (
+        selectLatest &&
+        loadedConversations.length > 0
+      ) {
+        await loadConversation(
+          loadedConversations[0].id,
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Load Conversations Error:",
+        error,
+      );
+    } finally {
+      setIsLoadingConversations(false);
+    }
+  }, [loadConversation]);
 
   // ========================================================
   // INITIAL LOAD
   // ========================================================
 
   useEffect(() => {
-    loadConversations(true);
-  }, []);
+    const timeoutId = window.setTimeout(() => {
+      void loadConversations(true);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadConversations]);
 
   // ========================================================
   // NEW CHAT
@@ -701,396 +1239,6 @@ export default function AskSharkFinClient({
     );
 
   // ========================================================
-  // CONVERSATION LIST
-  // ========================================================
-
-  function ConversationList({
-    mobile = false,
-  }: {
-    mobile?: boolean;
-  }) {
-    return (
-      <div className="flex h-full flex-col">
-        {/* LIST HEADER */}
-
-        {!mobile && (
-          <div className="border-b px-4 py-4">
-            <button
-              type="button"
-              onClick={
-                startNewConversation
-              }
-              className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-
-              New Conversation
-            </button>
-          </div>
-        )}
-
-        {mobile && (
-          <div className="border-b p-3">
-            <button
-              type="button"
-              onClick={
-                startNewConversation
-              }
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
-            >
-              <Plus className="h-4 w-4" />
-
-              New Conversation
-            </button>
-          </div>
-        )}
-
-        {/* LIST */}
-
-        <div className="flex-1 overflow-y-auto p-3">
-          <div className="mb-3 flex items-center justify-between px-2">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Conversations
-              </p>
-
-              {conversations.length >
-                0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {conversations.length}{" "}
-                  percakapan
-                </p>
-              )}
-            </div>
-
-            <MessageSquare className="h-4 w-4 text-muted-foreground/60" />
-          </div>
-
-          {isLoadingConversations ? (
-            <div className="space-y-2">
-              {Array.from({
-                length: 4,
-              }).map((_, index) => (
-                <div
-                  key={index}
-                  className="animate-pulse rounded-xl border border-transparent p-3"
-                >
-                  <div className="flex gap-3">
-                    <div className="h-8 w-8 shrink-0 rounded-lg bg-muted" />
-
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="h-3 w-3/4 rounded bg-muted" />
-
-                      <div className="h-2.5 w-1/2 rounded bg-muted" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : conversations.length ===
-            0 ? (
-            <div className="rounded-2xl border border-dashed bg-background/60 px-4 py-10 text-center">
-              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
-                <MessageSquare className="h-5 w-5 text-primary" />
-              </div>
-
-              <p className="text-sm font-semibold">
-                Belum ada percakapan
-              </p>
-
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Mulai percakapan baru
-                dengan SharkFin.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {conversations.map(
-                (conversation) => {
-                  const isActive =
-                    conversation.id ===
-                    conversationId;
-
-                  const isEditing =
-                    editingConversationId ===
-                    conversation.id;
-
-                  const isMenuOpen =
-                    openConversationMenu ===
-                    conversation.id;
-
-                  return (
-                    <div
-                      key={
-                        conversation.id
-                      }
-                      className={`group relative rounded-xl border transition-all ${
-                        isActive
-                          ? "border-primary/20 bg-primary/10 shadow-sm"
-                          : "border-transparent hover:border-border hover:bg-background"
-                      }`}
-                    >
-                      {!isEditing ? (
-                        <div className="flex items-center">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              loadConversation(
-                                conversation.id,
-                              )
-                            }
-                            disabled={
-                              isLoadingConversation ||
-                              isDeletingConversation
-                            }
-                            className="min-w-0 flex-1 px-3 py-3 text-left disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div
-                                className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                                  isActive
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted text-muted-foreground"
-                                }`}
-                              >
-                                <MessageSquare className="h-4 w-4" />
-                              </div>
-
-                              <div className="min-w-0 flex-1">
-                                <p
-                                  className={`truncate text-sm font-medium ${
-                                    isActive
-                                      ? "text-primary"
-                                      : "text-foreground"
-                                  }`}
-                                >
-                                  {conversation.title ||
-                                    "Percakapan Baru"}
-                                </p>
-
-                                <div className="mt-1 flex items-center gap-1.5">
-                                  <span className="text-xs text-muted-foreground">
-                                    {conversation
-                                      ._count
-                                      ?.messages ??
-                                      0}{" "}
-                                    pesan
-                                  </span>
-
-                                  {isActive && (
-                                    <>
-                                      <span className="h-1 w-1 rounded-full bg-primary/60" />
-
-                                      <span className="text-[10px] font-medium text-primary">
-                                        Aktif
-                                      </span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-
-                              <ChevronRight
-                                className={`mt-1 h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform ${
-                                  isActive
-                                    ? "translate-x-0 text-primary"
-                                    : "-translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
-                                }`}
-                              />
-                            </div>
-                          </button>
-
-                          <button
-                            type="button"
-                            aria-label="Conversation actions"
-                            onClick={(
-                              event,
-                            ) => {
-                              event.stopPropagation();
-
-                              toggleConversationMenu(
-                                conversation.id,
-                              );
-                            }}
-                            disabled={
-                              isDeletingConversation
-                            }
-                            className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground group-hover:opacity-100 focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="p-3">
-                          <div className="mb-2 flex items-center gap-2">
-                            <Pencil className="h-4 w-4 shrink-0 text-primary" />
-
-                            <span className="text-xs font-medium">
-                              Rename conversation
-                            </span>
-                          </div>
-
-                          <input
-                            type="text"
-                            value={
-                              editingTitle
-                            }
-                            onChange={(
-                              event,
-                            ) =>
-                              setEditingTitle(
-                                event.target
-                                  .value,
-                              )
-                            }
-                            onKeyDown={(
-                              event,
-                            ) => {
-                              if (
-                                event.key ===
-                                "Enter"
-                              ) {
-                                event.preventDefault();
-
-                                if (
-                                  editingTitle.trim()
-                                ) {
-                                  saveConversationTitle(
-                                    conversation.id,
-                                  );
-                                }
-                              }
-
-                              if (
-                                event.key ===
-                                "Escape"
-                              ) {
-                                cancelRenameConversation();
-                              }
-                            }}
-                            maxLength={100}
-                            autoFocus
-                            disabled={
-                              isSavingTitle
-                            }
-                            placeholder="Nama conversation..."
-                            className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
-                          />
-
-                          <div className="mt-2 flex justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={
-                                cancelRenameConversation
-                              }
-                              disabled={
-                                isSavingTitle
-                              }
-                              className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
-                            >
-                              <X className="h-3.5 w-3.5" />
-
-                              Batal
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                saveConversationTitle(
-                                  conversation.id,
-                                )
-                              }
-                              disabled={
-                                !editingTitle.trim() ||
-                                isSavingTitle
-                              }
-                              className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-2.5 text-xs font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              {isSavingTitle ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Check className="h-3.5 w-3.5" />
-                              )}
-
-                              Simpan
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {isMenuOpen &&
-                        !isEditing && (
-                          <div
-                            className="absolute right-2 top-12 z-50 w-40 overflow-hidden rounded-xl border bg-background p-1.5 shadow-xl"
-                            onClick={(
-                              event,
-                            ) =>
-                              event.stopPropagation()
-                            }
-                          >
-                            <button
-                              type="button"
-                              onClick={() =>
-                                startRenameConversation(
-                                  conversation,
-                                )
-                              }
-                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition hover:bg-muted"
-                            >
-                              <Pencil className="h-4 w-4" />
-
-                              Rename
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                deleteConversation(
-                                  conversation.id,
-                                )
-                              }
-                              disabled={
-                                isDeletingConversation
-                              }
-                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-destructive transition hover:bg-destructive/10 disabled:opacity-50"
-                            >
-                              {isDeletingConversation ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                    </div>
-                  );
-                },
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* SIDEBAR FOOTER */}
-
-        {!mobile && (
-          <div className="border-t p-3">
-            <div className="flex items-center gap-2 rounded-xl bg-primary/5 px-3 py-2.5">
-              <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
-
-              <p className="text-[11px] leading-4 text-muted-foreground">
-                Percakapanmu digunakan
-                untuk memberikan konteks
-                yang lebih relevan.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ========================================================
   // RENDER
   // ========================================================
 
@@ -1154,7 +1302,25 @@ export default function AskSharkFinClient({
         {/* ================================================= */}
 
         <aside className="hidden w-72 shrink-0 border-r bg-background lg:flex lg:flex-col">
-          <ConversationList />
+          <ConversationList
+            conversations={conversations}
+            conversationId={conversationId}
+            isLoadingConversations={isLoadingConversations}
+            isLoadingConversation={isLoadingConversation}
+            isDeletingConversation={isDeletingConversation}
+            editingConversationId={editingConversationId}
+            editingTitle={editingTitle}
+            isSavingTitle={isSavingTitle}
+            openConversationMenu={openConversationMenu}
+            startNewConversation={startNewConversation}
+            loadConversation={loadConversation}
+            toggleConversationMenu={toggleConversationMenu}
+            setEditingTitle={setEditingTitle}
+            saveConversationTitle={saveConversationTitle}
+            cancelRenameConversation={cancelRenameConversation}
+            startRenameConversation={startRenameConversation}
+            deleteConversation={deleteConversation}
+          />
         </aside>
 
         {/* ================================================= */}
@@ -1258,7 +1424,26 @@ export default function AskSharkFinClient({
                   </button>
                 </div>
 
-                <ConversationList mobile />
+                <ConversationList
+                  mobile
+                  conversations={conversations}
+                  conversationId={conversationId}
+                  isLoadingConversations={isLoadingConversations}
+                  isLoadingConversation={isLoadingConversation}
+                  isDeletingConversation={isDeletingConversation}
+                  editingConversationId={editingConversationId}
+                  editingTitle={editingTitle}
+                  isSavingTitle={isSavingTitle}
+                  openConversationMenu={openConversationMenu}
+                  startNewConversation={startNewConversation}
+                  loadConversation={loadConversation}
+                  toggleConversationMenu={toggleConversationMenu}
+                  setEditingTitle={setEditingTitle}
+                  saveConversationTitle={saveConversationTitle}
+                  cancelRenameConversation={cancelRenameConversation}
+                  startRenameConversation={startRenameConversation}
+                  deleteConversation={deleteConversation}
+                />
               </aside>
             </div>
           )}
@@ -1464,31 +1649,15 @@ export default function AskSharkFinClient({
                                     : "rounded-bl-md border bg-background"
                                 }`}
                               >
-                                {message.content
-                                  .split(
-                                    "\n",
-                                  )
-                                  .map(
-                                    (
-                                      line,
-                                      index,
-                                    ) => (
-                                      <p
-                                        key={
-                                          index
-                                        }
-                                        className={
-                                          index >
-                                          0
-                                            ? "mt-2"
-                                            : undefined
-                                        }
-                                      >
-                                        {line ||
-                                          "\u00A0"}
-                                      </p>
-                                    ),
-                                  )}
+                                {isUser ? (
+                                  <p className="whitespace-pre-wrap">
+                                    {message.content}
+                                  </p>
+                                ) : (
+                                  <SharkFinMessage
+                                    content={message.content}
+                                  />
+                                )}
                               </div>
                             </div>
 

@@ -3,7 +3,6 @@
 import {
   FormEvent,
   Suspense,
-  useEffect,
   useState,
 } from "react";
 import { signIn } from "next-auth/react";
@@ -208,15 +207,15 @@ function LoginForm() {
   const [password, setPassword] = useState("");
 
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+
+  const [success, setSuccess] = useState(() =>
+    searchParams.get("registered") === "true"
+      ? "Akun berhasil dibuat. Silakan login."
+      : ""
+  );
+
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  useEffect(() => {
-    if (searchParams.get("registered") === "true") {
-      setSuccess("Akun berhasil dibuat. Silakan login.");
-    }
-  }, [searchParams]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
