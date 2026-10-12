@@ -800,7 +800,7 @@ export default function BudgetsClient({
                     )}
                   </div>
 
-                  <h2 className="text-xl font-bold">
+                  <h2 className="text-xl font-bold ">
                     {editingBudget
                       ? "Edit Budget"
                       : "Buat Budget"}
@@ -1035,7 +1035,7 @@ export default function BudgetsClient({
               <button
                 type="button"
                 onClick={handleOpenAdd}
-                className="mt-6 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+                className="mt-6 inline-flex h-10 items-center gap-2 rounded-xl bg-[#0d63e8] px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
               >
                 <Plus className="h-4 w-4" />
                 Buat Budget

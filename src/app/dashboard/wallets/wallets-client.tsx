@@ -938,7 +938,7 @@ export default function WalletsClient({
                 type="button"
                 onClick={handleAddWallet}
                 disabled={isSubmitting}
-                className="h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-11 rounded-xl bg-[#0d63e8] px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? "Menyimpan..." : "Simpan Wallet"}
               </button>

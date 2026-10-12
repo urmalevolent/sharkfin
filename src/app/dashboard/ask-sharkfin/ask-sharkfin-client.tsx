@@ -1839,7 +1839,7 @@ export default function AskSharkFinClient({
                         !question.trim() ||
                         isLoading
                       }
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0d63e8] text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
                       aria-label="Kirim pertanyaan"
                     >
                       {isLoading ? (

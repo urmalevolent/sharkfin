@@ -1,16 +1,18 @@
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
-export function getOpenAIClient() {
-  const apiKey =
-    process.env.OPENAI_API_KEY;
+export function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
     throw new Error(
-      "OPENAI_API_KEY belum dikonfigurasi.",
+      "GEMINI_API_KEY belum dikonfigurasi.",
     );
   }
 
-  return new OpenAI({
+  return new GoogleGenAI({
     apiKey,
+    httpOptions: {
+      timeout: 20_000,
+    },
   });
 }

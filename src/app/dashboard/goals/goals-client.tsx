@@ -738,7 +738,7 @@ export default function GoalsClient({
             <button
               type="button"
               onClick={openCreateForm}
-              className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
+              className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-[#0d63e8] px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
             >
               <Plus className="h-4 w-4" />
               Buat Goal Pertama

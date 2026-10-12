@@ -249,7 +249,7 @@ function EmptyState({
           <button
             type="button"
             onClick={onAdd}
-            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
+            className="rounded-xl px-4 py-2.5 bg-[#0d63e8] text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
           >
             + Tambah Transaksi
           </button>
@@ -616,7 +616,7 @@ export default function TransactionsClient({
               <button
                 type="button"
                 onClick={openAddModal}
-                className="inline-flex h-11 items-center justify-center gap-2  rounded-xl bg-[#0d63e8] px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0d63e8] px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
               >
                 <span className="text-lg leading-none">+</span>
                 Tambah Transaksi
@@ -1130,7 +1130,7 @@ export default function TransactionsClient({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0d63e8] px-5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
 
@@ -1327,7 +1327,7 @@ export default function TransactionsClient({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0d63e8] px-5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
 

@@ -1,7 +1,7 @@
 "use client";
-
 import { FormEvent, useEffect, useRef, useState } from "react";
-
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Bot,
   CalendarDays,
@@ -21,17 +21,14 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-
 /* =========================================================
    TYPES
-========================================================= */
-
+\========================================================= */
 type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
 };
-
 type Conversation = {
   id: string;
   title: string | null;
@@ -41,7 +38,6 @@ type Conversation = {
     messages: number;
   };
 };
-
 type ConversationMessage = {
   id: string;
   role: "USER" | "ASSISTANT";
@@ -49,17 +45,14 @@ type ConversationMessage = {
   responseId?: string | null;
   createdAt: string;
 };
-
 type AskSharkFinModalProps = {
   open: boolean;
   userName: string;
   onClose: () => void;
 };
-
 /* =========================================================
    QUICK QUESTIONS
-========================================================= */
-
+\========================================================= */
 const quickQuestions = [
   {
     label: "Bagaimana kondisi keuangan saya?",
@@ -82,23 +75,18 @@ const quickQuestions = [
     icon: TrendingUp,
   },
 ];
-
 /* =========================================================
    HELPERS
-========================================================= */
-
+\========================================================= */
 function getWelcomeMessage(userName: string): Message {
   return {
     id: "welcome",
     role: "assistant",
     content: `Halo, ${userName}! 👋
-
 Saya SharkFin. Saya bisa membantu kamu memahami kondisi keuangan, pengeluaran, budget, goals, dan rencana keuanganmu berdasarkan data yang ada di SharkFin.
-
 Ada yang ingin kamu tanyakan?`,
   };
 }
-
 function convertConversationMessages(
   messages: ConversationMessage[],
 ): Message[] {
@@ -109,10 +97,20 @@ function convertConversationMessages(
   }));
 }
 
+/**
+ * Sebagian respons model mengirimkan karakter Markdown dalam keadaan
+ * ter-escape (contoh: \*\*tebal\*\* atau \### Judul).
+ * Normalisasi hanya dilakukan untuk pesan assistant sebelum dirender.
+ */
+function normalizeAssistantMarkdown(content: string): string {
+  return content
+    .replace(/\\([\\`*_{}\[\]()#+\-.!>])/g, "$1")
+    .replace(/\r\n?/g, "\n")
+    .trim();
+}
 /* =========================================================
    COMPONENT
-========================================================= */
-
+\========================================================= */
 export default function AskSharkFinModal({
   open,
   userName,
@@ -121,104 +119,70 @@ export default function AskSharkFinModal({
   /* =======================================================
      CONVERSATION STATE
   ======================================================= */
-
   const [conversationId, setConversationId] = useState<string | null>(null);
-
   const [conversationTitle, setConversationTitle] = useState(
     "Percakapan Baru",
   );
-
   const [conversations, setConversations] = useState<Conversation[]>([]);
-
   const [showHistory, setShowHistory] = useState(false);
-
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
-
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
-
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
-
   /* =======================================================
      MESSAGE STATE
   ======================================================= */
-
   const [messages, setMessages] = useState<Message[]>([
     getWelcomeMessage(userName),
   ]);
-
   const [question, setQuestion] = useState("");
-
   const [isLoading, setIsLoading] = useState(false);
-
   /* =======================================================
      RENAME STATE
   ======================================================= */
-
   const [isRenaming, setIsRenaming] = useState(false);
-
   const [renameInput, setRenameInput] = useState("");
-
   const [isRenameSubmitting, setIsRenameSubmitting] = useState(false);
-
   /* =======================================================
      DELETE STATE
   ======================================================= */
-
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-
   const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
-
   /* =======================================================
      REFS
   ======================================================= */
-
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-
   /* =======================================================
      AUTO SCROLL
   ======================================================= */
-
   useEffect(() => {
     if (!open) return;
-
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
     });
   }, [messages, isLoading, open]);
-
   /* =======================================================
      BODY SCROLL LOCK
   ======================================================= */
-
   useEffect(() => {
     if (!open) return;
-
     const originalOverflow = document.body.style.overflow;
-
     document.body.style.overflow = "hidden";
-
     return () => {
       document.body.style.overflow = originalOverflow;
     };
   }, [open]);
-
   /* =======================================================
      ESCAPE TO CLOSE
   ======================================================= */
-
   useEffect(() => {
     if (!open) return;
-
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
-
       if (showHistory) {
         setShowHistory(false);
         return;
       }
-
       if (
         isRenaming ||
         isDeleteOpen ||
@@ -228,12 +192,9 @@ export default function AskSharkFinModal({
       ) {
         return;
       }
-
       onClose();
     }
-
     window.addEventListener("keydown", handleKeyDown);
-
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -247,26 +208,20 @@ export default function AskSharkFinModal({
     isCreatingConversation,
     onClose,
   ]);
-
   /* =======================================================
      LOAD CONVERSATIONS
   ======================================================= */
-
   async function loadConversations() {
     setIsLoadingConversations(true);
-
     try {
       const response = await fetch("/api/ai/conversations", {
         method: "GET",
         cache: "no-store",
       });
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(result.message || "Gagal mengambil percakapan.");
       }
-
       /*
        * IMPORTANT:
        *
@@ -285,7 +240,6 @@ export default function AskSharkFinModal({
         : Array.isArray(result.data)
           ? result.data
           : [];
-
       setConversations(data);
     } catch (error) {
       console.error("Load conversations error:", error);
@@ -293,50 +247,36 @@ export default function AskSharkFinModal({
       setIsLoadingConversations(false);
     }
   }
-
   /* =======================================================
      LOAD CONVERSATION
   ======================================================= */
-
   async function loadConversation(id: string) {
     if (isLoadingConversation || isLoading || isCreatingConversation) {
       return;
     }
-
     setIsLoadingConversation(true);
-
     try {
       const response = await fetch(`/api/ai/conversations/${id}`, {
         method: "GET",
         cache: "no-store",
       });
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(result.message || "Gagal mengambil percakapan.");
       }
-
-      const conversation = result.data;
-
+      const conversation = result.conversation;
       if (!conversation) {
         throw new Error("Data percakapan tidak ditemukan.");
       }
-
       setConversationId(conversation.id);
-
       setConversationTitle(conversation.title || "Percakapan Baru");
-
       setMessages(
         conversation.messages?.length
           ? convertConversationMessages(conversation.messages)
           : [getWelcomeMessage(userName)],
       );
-
       setQuestion("");
-
       setShowHistory(false);
-
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -346,34 +286,26 @@ export default function AskSharkFinModal({
       setIsLoadingConversation(false);
     }
   }
-
   /* =======================================================
      LOAD CONVERSATIONS WHEN MODAL OPENS
   ======================================================= */
-
   useEffect(() => {
     if (!open) return;
-
     const timeoutId = window.setTimeout(() => {
       void loadConversations();
     }, 0);
-
     return () => {
       window.clearTimeout(timeoutId);
     };
   }, [open]);
-
   /* =======================================================
      CREATE NEW CONVERSATION
   ======================================================= */
-
   async function startNewConversation() {
     if (isLoading || isLoadingConversation || isCreatingConversation) {
       return;
     }
-
     setIsCreatingConversation(true);
-
     try {
       /*
        * IMPORTANT:
@@ -390,13 +322,10 @@ export default function AskSharkFinModal({
           title: null,
         }),
       });
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(result.message || "Gagal membuat percakapan baru.");
       }
-
       /*
        * API POST mengembalikan:
        *
@@ -407,11 +336,9 @@ export default function AskSharkFinModal({
        */
       const conversation =
         result.conversation ?? result.data?.conversation ?? null;
-
       if (!conversation?.id) {
         throw new Error("Conversation baru tidak memiliki ID.");
       }
-
       const newConversation: Conversation = {
         id: conversation.id,
         title: conversation.title ?? "Percakapan Baru",
@@ -421,7 +348,6 @@ export default function AskSharkFinModal({
           messages: conversation._count?.messages ?? 0,
         },
       };
-
       /*
        * Masukkan conversation baru
        * ke history secara langsung.
@@ -430,28 +356,21 @@ export default function AskSharkFinModal({
         const withoutDuplicate = previous.filter(
           (item) => item.id !== newConversation.id,
         );
-
         return [newConversation, ...withoutDuplicate];
       });
-
       /*
        * Jadikan conversation baru
        * sebagai conversation aktif.
        */
       setConversationId(newConversation.id);
-
       setConversationTitle(newConversation.title ?? "Percakapan Baru");
-
       /*
        * Conversation baru belum punya
        * pesan.
        */
       setMessages([getWelcomeMessage(userName)]);
-
       setQuestion("");
-
       setShowHistory(false);
-
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -461,34 +380,26 @@ export default function AskSharkFinModal({
       setIsCreatingConversation(false);
     }
   }
-
   /* =======================================================
      SEND QUESTION
   ======================================================= */
-
   async function sendQuestion(
     event?: FormEvent<HTMLFormElement>,
     selectedQuestion?: string,
   ) {
     event?.preventDefault();
-
     const text = (selectedQuestion ?? question).trim();
-
     if (!text || isLoading || isLoadingConversation || isCreatingConversation) {
       return;
     }
-
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content: text,
     };
-
     setMessages((previous) => [...previous, userMessage]);
-
     setQuestion("");
     setIsLoading(true);
-
     try {
       /*
        * Jika conversationId null,
@@ -509,15 +420,12 @@ export default function AskSharkFinModal({
           question: text,
         }),
       });
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(
           result.message || "Gagal mendapatkan jawaban dari SharkFin.",
         );
       }
-
       /*
        * Support beberapa kemungkinan
        * bentuk response API.
@@ -528,24 +436,19 @@ export default function AskSharkFinModal({
         result.conversation?.id ??
         result.data?.conversation?.id ??
         null;
-
       const answer = result.answer ?? result.data?.answer ?? "";
-
       /*
        * Simpan conversationId hasil API.
        */
       if (typeof newConversationId === "string") {
         setConversationId(newConversationId);
       }
-
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
         content: answer || "Maaf, SharkFin tidak memberikan jawaban.",
       };
-
       setMessages((previous) => [...previous, assistantMessage]);
-
       /*
        * Refresh history supaya:
        *
@@ -557,54 +460,39 @@ export default function AskSharkFinModal({
       await loadConversations();
     } catch (error) {
       console.error("Ask SharkFin Error:", error);
-
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
         content:
           "Maaf, SharkFin sedang mengalami gangguan. Silakan coba lagi beberapa saat.",
       };
-
       setMessages((previous) => [...previous, errorMessage]);
     } finally {
       setIsLoading(false);
-
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
     }
   }
-
   /* =======================================================
      RENAME CONVERSATION
   ======================================================= */
-
   function openRename() {
     if (!conversationId) return;
-
     setRenameInput(conversationTitle);
-
     setIsRenaming(true);
   }
-
   function closeRename() {
     if (isRenameSubmitting) return;
-
     setRenameInput("");
     setIsRenaming(false);
   }
-
   async function handleRename() {
     if (!conversationId) return;
-
     const title = renameInput.trim();
-
     if (!title) return;
-
     if (title.length > 100) return;
-
     setIsRenameSubmitting(true);
-
     try {
       const response = await fetch(`/api/ai/conversations/${conversationId}`, {
         method: "PATCH",
@@ -615,15 +503,11 @@ export default function AskSharkFinModal({
           title,
         }),
       });
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(result.message || "Gagal mengubah nama percakapan.");
       }
-
       setConversationTitle(title);
-
       setConversations((previous) =>
         previous.map((conversation) =>
           conversation.id === conversationId
@@ -635,7 +519,6 @@ export default function AskSharkFinModal({
             : conversation,
         ),
       );
-
       closeRename();
     } catch (error) {
       console.error("Rename conversation error:", error);
@@ -643,45 +526,32 @@ export default function AskSharkFinModal({
       setIsRenameSubmitting(false);
     }
   }
-
   /* =======================================================
      DELETE CONVERSATION
   ======================================================= */
-
   function openDelete() {
     if (!conversationId) return;
-
     setIsDeleteOpen(true);
   }
-
   function closeDelete() {
     if (isDeleteSubmitting) return;
-
     setIsDeleteOpen(false);
   }
-
   async function handleDelete() {
     if (!conversationId) return;
-
     setIsDeleteSubmitting(true);
-
     try {
       const deletingId = conversationId;
-
       const response = await fetch(`/api/ai/conversations/${deletingId}`, {
         method: "DELETE",
       });
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(result.message || "Gagal menghapus percakapan.");
       }
-
       setConversations((previous) =>
         previous.filter((conversation) => conversation.id !== deletingId),
       );
-
       /*
        * Setelah delete,
        * jangan membuat conversation
@@ -691,13 +561,9 @@ export default function AskSharkFinModal({
        * "Percakapan Baru".
        */
       setConversationId(null);
-
       setConversationTitle("Percakapan Baru");
-
       setMessages([getWelcomeMessage(userName)]);
-
       setQuestion("");
-
       setIsDeleteOpen(false);
       setShowHistory(false);
     } catch (error) {
@@ -706,11 +572,9 @@ export default function AskSharkFinModal({
       setIsDeleteSubmitting(false);
     }
   }
-
   /* =======================================================
      CLOSE MODAL
   ======================================================= */
-
   function handleClose() {
     if (
       isLoading ||
@@ -721,28 +585,22 @@ export default function AskSharkFinModal({
     ) {
       return;
     }
-
     setShowHistory(false);
     setIsRenaming(false);
     setIsDeleteOpen(false);
-
     onClose();
   }
-
   /* =======================================================
      RENDER
   ======================================================= */
-
   if (!open) {
     return null;
   }
-
   return (
     <>
       {/* ===================================================
           BACKDROP
       =================================================== */}
-
       <div
         className="
           fixed inset-0 z-[100]
@@ -755,11 +613,9 @@ export default function AskSharkFinModal({
           }
         }}
       />
-
       {/* ===================================================
           MODAL CONTAINER
       =================================================== */}
-
       <div
         className="
           fixed inset-0 z-[101]
@@ -777,7 +633,6 @@ export default function AskSharkFinModal({
             overflow-hidden
             bg-background
             shadow-2xl
-
             sm:h-[min(760px,calc(100vh-32px))]
             sm:max-w-5xl
             sm:rounded-2xl
@@ -787,11 +642,9 @@ export default function AskSharkFinModal({
           {/* =================================================
               HISTORY PANEL
           ================================================= */}
-
           {showHistory && (
             <>
               {/* Mobile overlay */}
-
               <button
                 type="button"
                 aria-label="Tutup riwayat"
@@ -802,9 +655,7 @@ export default function AskSharkFinModal({
                   lg:hidden
                 "
               />
-
               {/* History */}
-
               <aside
                 className="
                   fixed inset-y-0 left-0 z-[103]
@@ -813,14 +664,12 @@ export default function AskSharkFinModal({
                   border-r
                   bg-background
                   shadow-2xl
-
                   lg:static
                   lg:z-auto
                   lg:flex
                 "
               >
                 {/* History Header */}
-
                 <div
                   className="
                     flex h-16 shrink-0
@@ -830,18 +679,15 @@ export default function AskSharkFinModal({
                 >
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-5 w-5 text-primary" />
-
                     <div>
                       <p className="text-sm font-semibold">
                         Riwayat Percakapan
                       </p>
-
                       <p className="text-[11px] text-muted-foreground">
                         Percakapan SharkFin
                       </p>
                     </div>
                   </div>
-
                   <button
                     type="button"
                     onClick={() => setShowHistory(false)}
@@ -857,9 +703,7 @@ export default function AskSharkFinModal({
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-
                 {/* New Conversation */}
-
                 <div className="border-b p-3">
                   <button
                     type="button"
@@ -890,13 +734,10 @@ export default function AskSharkFinModal({
                     ) : (
                       <Plus className="h-4 w-4" />
                     )}
-
                     {isCreatingConversation ? "Membuat..." : "Percakapan Baru"}
                   </button>
                 </div>
-
                 {/* Conversation List */}
-
                 <div className="flex-1 overflow-y-auto p-2">
                   {isLoadingConversations ? (
                     <div className="space-y-2 p-2">
@@ -933,11 +774,9 @@ export default function AskSharkFinModal({
                       >
                         <MessageSquare className="h-5 w-5 text-primary" />
                       </div>
-
                       <p className="mt-3 text-sm font-medium">
                         Belum ada percakapan
                       </p>
-
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
                         Percakapan yang kamu lakukan dengan SharkFin akan
                         muncul di sini.
@@ -947,7 +786,6 @@ export default function AskSharkFinModal({
                     <div className="space-y-1">
                       {conversations.map((conversation) => {
                         const active = conversation.id === conversationId;
-
                         return (
                           <button
                             key={conversation.id}
@@ -965,13 +803,11 @@ export default function AskSharkFinModal({
                               px-3 py-3
                               text-left
                               transition
-
                               ${
                                 active
                                   ? "bg-primary/10 text-primary"
                                   : "hover:bg-muted"
                               }
-
                               disabled:cursor-not-allowed
                               disabled:opacity-60
                             `}
@@ -981,7 +817,6 @@ export default function AskSharkFinModal({
                                 mt-0.5
                                 h-4 w-4
                                 shrink-0
-
                                 ${
                                   active
                                     ? "text-primary"
@@ -989,12 +824,10 @@ export default function AskSharkFinModal({
                                 }
                               `}
                             />
-
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium">
                                 {conversation.title || "Percakapan Baru"}
                               </p>
-
                               <p className="mt-0.5 text-[10px] text-muted-foreground">
                                 {conversation._count?.messages ?? 0} pesan
                               </p>
@@ -1008,16 +841,13 @@ export default function AskSharkFinModal({
               </aside>
             </>
           )}
-
           {/* =================================================
               MAIN CHAT
           ================================================= */}
-
           <div className="flex min-w-0 flex-1 flex-col">
             {/* =================================================
                 HEADER
             ================================================= */}
-
             <header
               className="
                 flex h-16 shrink-0
@@ -1029,7 +859,6 @@ export default function AskSharkFinModal({
             >
               <div className="flex min-w-0 items-center gap-3">
                 {/* History */}
-
                 <button
                   type="button"
                   onClick={() => setShowHistory(true)}
@@ -1049,9 +878,7 @@ export default function AskSharkFinModal({
                 >
                   <Menu className="h-4 w-4" />
                 </button>
-
                 {/* Icon */}
-
                 <div
                   className="
                     flex h-9 w-9
@@ -1063,15 +890,12 @@ export default function AskSharkFinModal({
                 >
                   <Bot className="h-5 w-5 text-primary" />
                 </div>
-
                 {/* Title */}
-
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h2 className="truncate text-sm font-semibold sm:text-base">
                       Ask SharkFin
                     </h2>
-
                     <span
                       className="
                         hidden
@@ -1089,20 +913,16 @@ export default function AskSharkFinModal({
                       AI
                     </span>
                   </div>
-
                   <p className="truncate text-[10px] text-muted-foreground sm:text-xs">
                     {conversationTitle}
                   </p>
                 </div>
               </div>
-
               {/* Header Actions */}
-
               <div className="flex items-center gap-1">
                 {conversationId && (
                   <>
                     {/* Rename */}
-
                     <button
                       type="button"
                       onClick={openRename}
@@ -1124,9 +944,7 @@ export default function AskSharkFinModal({
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
-
                     {/* Delete */}
-
                     <button
                       type="button"
                       onClick={openDelete}
@@ -1150,9 +968,7 @@ export default function AskSharkFinModal({
                     </button>
                   </>
                 )}
-
                 {/* Close */}
-
                 <button
                   type="button"
                   onClick={handleClose}
@@ -1179,11 +995,9 @@ export default function AskSharkFinModal({
                 </button>
               </div>
             </header>
-
             {/* =================================================
                 MOBILE ACTIONS
             ================================================= */}
-
             {conversationId && (
               <div
                 className="
@@ -1209,7 +1023,6 @@ export default function AskSharkFinModal({
                   <Pencil className="h-3.5 w-3.5" />
                   Ubah nama
                 </button>
-
                 <button
                   type="button"
                   onClick={openDelete}
@@ -1229,11 +1042,9 @@ export default function AskSharkFinModal({
                 </button>
               </div>
             )}
-
             {/* =================================================
                 CHAT CONTENT
             ================================================= */}
-
             <div
               className="
                 min-h-0
@@ -1265,7 +1076,6 @@ export default function AskSharkFinModal({
                   <>
                     {messages.map((message) => {
                       const isUser = message.role === "user";
-
                       return (
                         <div
                           key={message.id}
@@ -1288,7 +1098,6 @@ export default function AskSharkFinModal({
                               <Bot className="h-4 w-4 text-primary" />
                             </div>
                           )}
-
                           <div
                             className={`
                               max-w-[85%]
@@ -1297,7 +1106,6 @@ export default function AskSharkFinModal({
                               text-sm
                               leading-6
                               shadow-sm
-
                               ${
                                 isUser
                                   ? `
@@ -1313,16 +1121,67 @@ export default function AskSharkFinModal({
                               }
                             `}
                           >
-                            {message.content.split("\n").map((line, index) => (
-                              <p
-                                key={index}
-                                className={index > 0 ? "mt-2" : undefined}
-                              >
-                                {line || "\u00A0"}
+                            {isUser ? (
+                              <p className="whitespace-pre-wrap break-words">
+                                {message.content}
                               </p>
-                            ))}
+                            ) : (
+                              <div className="sharkfin-markdown min-w-0 break-words">
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
+                                  components={{
+                                    h1: ({ children }) => (
+                                      <h1 className="mb-3 mt-1 text-lg font-bold leading-snug">{children}</h1>
+                                    ),
+                                    h2: ({ children }) => (
+                                      <h2 className="mb-2 mt-4 text-base font-bold leading-snug">{children}</h2>
+                                    ),
+                                    h3: ({ children }) => (
+                                      <h3 className="mb-2 mt-3 text-sm font-bold leading-snug">{children}</h3>
+                                    ),
+                                    p: ({ children }) => (
+                                      <p className="mb-3 last:mb-0 leading-7">{children}</p>
+                                    ),
+                                    strong: ({ children }) => (
+                                      <strong className="font-semibold">{children}</strong>
+                                    ),
+                                    ul: ({ children }) => (
+                                      <ul className="mb-3 list-disc space-y-1 pl-5 last:mb-0">{children}</ul>
+                                    ),
+                                    ol: ({ children }) => (
+                                      <ol className="mb-3 list-decimal space-y-1 pl-5 last:mb-0">{children}</ol>
+                                    ),
+                                    li: ({ children }) => (
+                                      <li className="pl-1 leading-7">{children}</li>
+                                    ),
+                                    blockquote: ({ children }) => (
+                                      <blockquote className="my-3 border-l-2 border-primary/40 pl-3 text-muted-foreground">{children}</blockquote>
+                                    ),
+                                    hr: () => <hr className="my-4 border-border" />,
+                                    a: ({ href, children }) => (
+                                      <a href={href} target="_blank" rel="noreferrer" className="font-medium text-primary underline underline-offset-4">{children}</a>
+                                    ),
+                                    table: ({ children }) => (
+                                      <div className="mb-3 overflow-x-auto rounded-lg border">
+                                        <table className="w-full border-collapse text-left text-xs">{children}</table>
+                                      </div>
+                                    ),
+                                    th: ({ children }) => (
+                                      <th className="border-b bg-muted px-3 py-2 font-semibold">{children}</th>
+                                    ),
+                                    td: ({ children }) => (
+                                      <td className="border-b px-3 py-2 align-top">{children}</td>
+                                    ),
+                                    code: ({ children }) => (
+                                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.9em]">{children}</code>
+                                    ),
+                                  }}
+                                >
+                                  {normalizeAssistantMarkdown(message.content)}
+                                </ReactMarkdown>
+                              </div>
+                            )}
                           </div>
-
                           {isUser && (
                             <div
                               className="
@@ -1340,9 +1199,7 @@ export default function AskSharkFinModal({
                         </div>
                       );
                     })}
-
                     {/* AI Loading */}
-
                     {isLoading && (
                       <div className="flex gap-3">
                         <div
@@ -1357,7 +1214,6 @@ export default function AskSharkFinModal({
                         >
                           <Bot className="h-4 w-4 text-primary" />
                         </div>
-
                         <div
                           className="
                             rounded-2xl
@@ -1374,17 +1230,14 @@ export default function AskSharkFinModal({
                         </div>
                       </div>
                     )}
-
                     <div ref={messagesEndRef} />
                   </>
                 )}
               </div>
             </div>
-
             {/* =================================================
                 COMPOSER
             ================================================= */}
-
             <div
               className="
                 shrink-0
@@ -1402,7 +1255,6 @@ export default function AskSharkFinModal({
                 "
               >
                 {/* Quick Questions */}
-
                 {messages.length === 1 &&
                   !isLoading &&
                   !isLoadingConversation && (
@@ -1419,7 +1271,6 @@ export default function AskSharkFinModal({
                         <Sparkles className="h-3.5 w-3.5 text-primary" />
                         Coba tanyakan
                       </div>
-
                       <div
                         className="
                           flex gap-2
@@ -1430,7 +1281,6 @@ export default function AskSharkFinModal({
                       >
                         {quickQuestions.map((item) => {
                           const Icon = item.icon;
-
                           return (
                             <button
                               key={item.label}
@@ -1456,7 +1306,6 @@ export default function AskSharkFinModal({
                               "
                             >
                               <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-
                               {item.label}
                             </button>
                           );
@@ -1464,9 +1313,7 @@ export default function AskSharkFinModal({
                       </div>
                     </div>
                   )}
-
                 {/* Input */}
-
                 <form onSubmit={sendQuestion} className="relative">
                   <textarea
                     ref={inputRef}
@@ -1475,7 +1322,6 @@ export default function AskSharkFinModal({
                     onKeyDown={(event) => {
                       if (event.key === "Enter" && !event.shiftKey) {
                         event.preventDefault();
-
                         if (
                           question.trim() &&
                           !isLoading &&
@@ -1507,20 +1353,15 @@ export default function AskSharkFinModal({
                       text-sm
                       outline-none
                       transition
-
                       placeholder:text-muted-foreground
-
                       focus:border-primary
                       focus:ring-2
                       focus:ring-primary/20
-
                       disabled:cursor-not-allowed
                       disabled:opacity-60
                     "
                   />
-
                   {/* Send */}
-
                   <button
                     type="submit"
                     disabled={
@@ -1554,9 +1395,7 @@ export default function AskSharkFinModal({
                     )}
                   </button>
                 </form>
-
                 {/* Disclaimer */}
-
                 <p
                   className="
                     mt-2
@@ -1575,15 +1414,12 @@ export default function AskSharkFinModal({
           </div>
         </div>
       </div>
-
       {/* ===================================================
           RENAME MODAL
       =================================================== */}
-
       {isRenaming && (
         <>
           <div className="fixed inset-0 z-[120] bg-slate-950/50" />
-
           <div
             className="
               fixed inset-0 z-[121]
@@ -1606,12 +1442,10 @@ export default function AskSharkFinModal({
                   <h3 className="text-base font-semibold">
                     Ubah Nama Percakapan
                   </h3>
-
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     Berikan nama agar percakapan lebih mudah ditemukan.
                   </p>
                 </div>
-
                 <button
                   type="button"
                   onClick={closeRename}
@@ -1627,7 +1461,6 @@ export default function AskSharkFinModal({
                   <X className="h-4 w-4" />
                 </button>
               </div>
-
               <div className="mt-5">
                 <label
                   htmlFor="conversation-title"
@@ -1635,7 +1468,6 @@ export default function AskSharkFinModal({
                 >
                   Nama percakapan
                 </label>
-
                 <input
                   id="conversation-title"
                   value={renameInput}
@@ -1643,7 +1475,6 @@ export default function AskSharkFinModal({
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
-
                       if (renameInput.trim() && !isRenameSubmitting) {
                         handleRename();
                       }
@@ -1669,12 +1500,10 @@ export default function AskSharkFinModal({
                     focus:ring-primary/20
                   "
                 />
-
                 <p className="mt-1 text-[10px] text-muted-foreground">
                   Maksimal 100 karakter.
                 </p>
               </div>
-
               <div className="mt-5 flex justify-end gap-2">
                 <button
                   type="button"
@@ -1693,7 +1522,6 @@ export default function AskSharkFinModal({
                 >
                   Batal
                 </button>
-
                 <button
                   type="button"
                   onClick={handleRename}
@@ -1726,15 +1554,12 @@ export default function AskSharkFinModal({
           </div>
         </>
       )}
-
       {/* ===================================================
           DELETE MODAL
       =================================================== */}
-
       {isDeleteOpen && (
         <>
           <div className="fixed inset-0 z-[120] bg-slate-950/50" />
-
           <div
             className="
               fixed inset-0 z-[121]
@@ -1762,16 +1587,13 @@ export default function AskSharkFinModal({
               >
                 <Trash2 className="h-5 w-5 text-red-600" />
               </div>
-
               <h3 className="mt-4 text-base font-semibold">
                 Hapus Percakapan?
               </h3>
-
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 Percakapan ini beserta seluruh pesan di dalamnya akan dihapus.
                 Tindakan ini tidak dapat dibatalkan.
               </p>
-
               <div className="mt-5 flex justify-end gap-2">
                 <button
                   type="button"
@@ -1790,7 +1612,6 @@ export default function AskSharkFinModal({
                 >
                   Batal
                 </button>
-
                 <button
                   type="button"
                   onClick={handleDelete}
