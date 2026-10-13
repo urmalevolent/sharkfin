@@ -46,8 +46,6 @@ export async function getFinancialOverview(
     budget,
     goals,
     obligations,
-    forecast,
-    financialHealth,
   ] = await Promise.all([
     getTotalBalance(userId),
     getCashflow(userId, period),
@@ -56,11 +54,21 @@ export async function getFinancialOverview(
     getBudgetMetrics(userId),
     getGoalMetrics(userId),
     getObligationMetrics(userId),
-    getForecastMetrics(
-      userId,
-      period,
-    ),
-    getFinancialHealth(userId),
+  ]);
+
+  const [forecast, financialHealth] = await Promise.all([
+    getForecastMetrics(userId, period, {
+      currentBalance: totalBalance,
+      upcomingObligations: obligations.totalUpcoming,
+      spending: cashflow.expense,
+    }),
+    getFinancialHealth(userId, {
+      cashflow,
+      totalBalance,
+      budget,
+      goals,
+      obligations,
+    }),
   ]);
 
   const savingRate =
@@ -270,20 +278,23 @@ export async function getAffordabilityAnalysis(
   const [
     totalBalance,
     obligations,
-    forecast,
     goals,
   ] = await Promise.all([
     getTotalBalance(userId),
 
     getObligationMetrics(userId),
 
-    getForecastMetrics(
-      userId,
-      period,
-    ),
-
     getGoalMetrics(userId),
   ]);
+
+  const forecast = await getForecastMetrics(
+    userId,
+    period,
+    {
+      currentBalance: totalBalance,
+      upcomingObligations: obligations.totalUpcoming,
+    },
+  );
 
   /*
    * Forecast already calculates projected

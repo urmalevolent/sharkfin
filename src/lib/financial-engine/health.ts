@@ -91,9 +91,143 @@ function getObligationStatus(
   return "GOOD";
 }
 
+export type FinancialHealthPrefetchedInput = {
+  cashflow: {
+    income: bigint;
+    expense: bigint;
+    netCashflow: bigint;
+  };
+  totalBalance: bigint;
+  budget: {
+    budgets: Array<{
+      categoryId: string;
+      usage: number;
+    }>;
+  };
+  goals: {
+    goals: Array<{
+      id: string;
+      name: string;
+      targetAmount: bigint;
+      currentAmount: bigint;
+      progress: number;
+    }>;
+  };
+  obligations: {
+    totalUpcoming: bigint;
+  };
+};
+
 export async function getFinancialHealth(
   userId: string,
+  prefetched?: FinancialHealthPrefetchedInput,
 ) {
+  if (prefetched) {
+    const { income, expense, netCashflow } = prefetched.cashflow;
+    const savingRate =
+      income > BigInt(0)
+        ? Number(
+            (
+              (Number(netCashflow) / Number(income)) *
+              100
+            ).toFixed(2),
+          )
+        : null;
+
+    const budgetMetrics = prefetched.budget.budgets.map((budget) => ({
+      categoryId: budget.categoryId,
+      usage: budget.usage,
+      status: getBudgetStatus(budget.usage),
+    }));
+
+    const highestBudgetUsage =
+      budgetMetrics.length > 0
+        ? budgetMetrics.reduce((highest, current) =>
+            current.usage > highest.usage ? current : highest,
+          )
+        : null;
+
+    const goalMetrics = prefetched.goals.goals.map((goal) => ({
+      id: goal.id,
+      name: goal.name,
+      progress: goal.progress,
+      status:
+        goal.targetAmount <= goal.currentAmount
+          ? ("GOOD" as HealthStatus)
+          : getGoalStatus(goal.progress),
+    }));
+
+    const activeGoals = goalMetrics.filter(
+      (goal) => goal.status !== "GOOD",
+    );
+
+    const totalBalance = prefetched.totalBalance;
+    const upcomingObligations = prefetched.obligations.totalUpcoming;
+    const availableBalance =
+      totalBalance - upcomingObligations;
+
+    const cashflowStatus = getCashflowStatus(netCashflow);
+    const savingStatus = getSavingStatus(savingRate);
+    const budgetStatus =
+      highestBudgetUsage?.status ?? "GOOD";
+    const goalStatus =
+      activeGoals.some((goal) => goal.status === "WARNING")
+        ? "WARNING"
+        : activeGoals.length > 0
+          ? "WATCH"
+          : "GOOD";
+    const obligationStatus = getObligationStatus(
+      availableBalance,
+      totalBalance,
+    );
+
+    const statuses = [
+      cashflowStatus,
+      savingStatus,
+      budgetStatus,
+      goalStatus,
+      obligationStatus,
+    ];
+
+    let overallStatus: "GOOD" | "WATCH" | "WARNING" = "GOOD";
+
+    if (statuses.includes("WARNING")) {
+      overallStatus = "WARNING";
+    } else if (statuses.includes("WATCH")) {
+      overallStatus = "WATCH";
+    }
+
+    return {
+      overallStatus,
+      cashflow: {
+        income,
+        expense,
+        netCashflow,
+        savingRate,
+        status: cashflowStatus,
+      },
+      saving: {
+        savingRate,
+        status: savingStatus,
+      },
+      budget: {
+        budgetCount: budgetMetrics.length,
+        highestUsage: highestBudgetUsage,
+        status: budgetStatus,
+      },
+      goals: {
+        totalGoals: goalMetrics.length,
+        goalsNeedingAttention: activeGoals.length,
+        status: goalStatus,
+      },
+      obligations: {
+        totalUpcoming: upcomingObligations,
+        availableBalance,
+        status: obligationStatus,
+      },
+    };
+  }
+
   const now = new Date();
 
   const month = now.getMonth() + 1;
@@ -185,7 +319,7 @@ export async function getFinancialHealth(
       : null;
 
   /*
-   * BUDGET
+   * BUDGET (optimized with groupBy)
    */
   const budgets =
     await prisma.budget.findMany({
@@ -196,52 +330,65 @@ export async function getFinancialHealth(
       },
     });
 
-  const budgetMetrics =
-    await Promise.all(
-      budgets.map(async (budget) => {
-        const spentResult =
-          await prisma.transaction.aggregate({
-            where: {
-              userId,
-              type: "EXPENSE",
-              categoryId:
-                budget.categoryId,
-              transactionDate: {
-                gte: startDate,
-                lt: endDate,
-              },
+  const categoryIds = budgets.map((b) => b.categoryId);
+
+  const spentGrouped =
+    categoryIds.length > 0
+      ? await prisma.transaction.groupBy({
+          by: ["categoryId"],
+          where: {
+            userId,
+            type: "EXPENSE",
+            categoryId: {
+              in: categoryIds,
             },
-            _sum: {
-              amount: true,
+            transactionDate: {
+              gte: startDate,
+              lt: endDate,
             },
-          });
+          },
+          _sum: {
+            amount: true,
+          },
+        })
+      : [];
 
-        const spent =
-          spentResult._sum.amount ??
-          BigInt(0);
+  const spentMap = new Map<string, bigint>();
+  for (const item of spentGrouped) {
+    if (item.categoryId) {
+      spentMap.set(
+        item.categoryId,
+        item._sum.amount ?? BigInt(0),
+      );
+    }
+  }
 
-        const usage =
-          budget.amount > BigInt(0)
-            ? Number(
-                (
-                  (Number(spent) /
-                    Number(
-                      budget.amount,
-                    )) *
-                  100
-                ).toFixed(2),
-              )
-            : 0;
+  const budgetMetrics = budgets.map((budget) => {
+    const spent =
+      spentMap.get(budget.categoryId) ??
+      BigInt(0);
 
-        return {
-          categoryId:
-            budget.categoryId,
-          usage,
-          status:
-            getBudgetStatus(usage),
-        };
-      }),
-    );
+    const usage =
+      budget.amount > BigInt(0)
+        ? Number(
+            (
+              (Number(spent) /
+                Number(
+                  budget.amount,
+                )) *
+              100
+            ).toFixed(2),
+          )
+        : 0;
+
+    return {
+      categoryId:
+        budget.categoryId,
+      usage,
+      status:
+        getBudgetStatus(usage),
+    };
+  });
 
   const highestBudgetUsage =
     budgetMetrics.length > 0

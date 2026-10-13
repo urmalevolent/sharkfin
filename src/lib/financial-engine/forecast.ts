@@ -8,6 +8,11 @@ type ForecastPeriod = {
 export async function getForecastMetrics(
   userId: string,
   period: ForecastPeriod,
+  prefetched?: {
+    currentBalance?: bigint;
+    upcomingObligations?: bigint;
+    spending?: bigint;
+  },
 ) {
   const now = new Date();
 
@@ -15,70 +20,82 @@ export async function getForecastMetrics(
    * Current total balance dari seluruh
    * active wallet user.
    */
-  const balanceResult =
-    await prisma.wallet.aggregate({
-      where: {
-        userId,
-        isActive: true,
-      },
-      _sum: {
-        balance: true,
-      },
-    });
+  let currentBalance = prefetched?.currentBalance;
 
-  const currentBalance =
-    balanceResult._sum.balance ??
-    BigInt(0);
+  if (currentBalance === undefined) {
+    const balanceResult =
+      await prisma.wallet.aggregate({
+        where: {
+          userId,
+          isActive: true,
+        },
+        _sum: {
+          balance: true,
+        },
+      });
+
+    currentBalance =
+      balanceResult._sum.balance ??
+      BigInt(0);
+  }
 
   /*
    * Upcoming obligations yang sudah
    * diketahui sistem.
    */
-  const scheduledExpenses =
-    await prisma.scheduledExpense.findMany({
-      where: {
-        userId,
-        isActive: true,
-        status: "PENDING",
-        nextDate: {
-          gte: now,
-        },
-      },
-      select: {
-        amount: true,
-        nextDate: true,
-      },
-    });
+  let upcomingObligations = prefetched?.upcomingObligations;
 
-  const upcomingObligations =
-    scheduledExpenses.reduce(
-      (total, expense) =>
-        total + expense.amount,
-      BigInt(0),
-    );
+  if (upcomingObligations === undefined) {
+    const scheduledExpenses =
+      await prisma.scheduledExpense.findMany({
+        where: {
+          userId,
+          isActive: true,
+          status: "PENDING",
+          nextDate: {
+            gte: now,
+          },
+        },
+        select: {
+          amount: true,
+          nextDate: true,
+        },
+      });
+
+    upcomingObligations =
+      scheduledExpenses.reduce(
+        (total, expense) =>
+          total + expense.amount,
+        BigInt(0),
+      );
+  }
 
   /*
    * Hitung pengeluaran pada periode
    * berjalan.
    */
-  const expenseResult =
-    await prisma.transaction.aggregate({
-      where: {
-        userId,
-        type: "EXPENSE",
-        transactionDate: {
-          gte: period.startDate,
-          lt: period.endDate,
-        },
-      },
-      _sum: {
-        amount: true,
-      },
-    });
+  let spending = prefetched?.spending;
 
-  const spending =
-    expenseResult._sum.amount ??
-    BigInt(0);
+  if (spending === undefined) {
+    const expenseResult =
+      await prisma.transaction.aggregate({
+        where: {
+          userId,
+          type: "EXPENSE",
+          transactionDate: {
+            gte: period.startDate,
+            lt: period.endDate,
+          },
+        },
+        _sum: {
+          amount: true,
+        },
+      });
+
+    spending =
+      expenseResult._sum.amount ??
+      BigInt(0);
+  }
 
   /*
    * Hitung jumlah hari yang sudah

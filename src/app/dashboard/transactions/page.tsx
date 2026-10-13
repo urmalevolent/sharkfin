@@ -1,29 +1,68 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { TransactionType } from "@/generated/prisma/client";
+import {
+  getUserTransactionsPaginated,
+  getTransactionSummary,
+} from "@/services/transaction.service";
 import TransactionsClient from "./transactions-client";
 
-export default async function TransactionsPage() {
+interface TransactionsPageProps {
+  searchParams?: Promise<{
+    page?: string;
+    type?: string;
+    categoryId?: string;
+    month?: string;
+    search?: string;
+  }>;
+}
+
+export default async function TransactionsPage(props: TransactionsPageProps) {
   const session = await auth();
 
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const [transactions, wallets, categories] = await Promise.all([
-    prisma.transaction.findMany({
-      where: {
-        userId: session.user.id,
-      },
-      include: {
-        wallet: true,
-        category: true,
-        fromWallet: true,
-        toWallet: true,
-      },
-      orderBy: {
-        transactionDate: "desc",
-      },
+  const resolvedParams = props.searchParams ? await props.searchParams : {};
+  const page = Math.max(1, parseInt(resolvedParams.page || "1", 10) || 1);
+  const pageSize = 15;
+  const type =
+    resolvedParams.type && resolvedParams.type !== "ALL"
+      ? (resolvedParams.type as TransactionType)
+      : undefined;
+  const categoryId =
+    resolvedParams.categoryId && resolvedParams.categoryId !== "ALL"
+      ? resolvedParams.categoryId
+      : undefined;
+  const search = resolvedParams.search?.trim() || undefined;
+  const month = resolvedParams.month?.trim() || undefined;
+
+  let startDate: Date | undefined;
+  let endDate: Date | undefined;
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [year, m] = month.split("-").map(Number);
+    startDate = new Date(year, m - 1, 1);
+    endDate = new Date(year, m, 1);
+  }
+
+  const [paginatedData, summaryData, wallets, categories] = await Promise.all([
+    getUserTransactionsPaginated(session.user.id, {
+      page,
+      limit: pageSize,
+      type,
+      categoryId,
+      search,
+      startDate,
+      endDate,
+    }),
+
+    getTransactionSummary(session.user.id, {
+      categoryId,
+      search,
+      startDate,
+      endDate,
     }),
 
     prisma.wallet.findMany({
@@ -54,13 +93,12 @@ export default async function TransactionsPage() {
     }),
   ]);
 
-  const serializedTransactions = transactions.map(
+  const serializedTransactions = paginatedData.transactions.map(
     (transaction) => ({
       id: transaction.id,
       type: transaction.type,
       amount: transaction.amount.toString(),
-      transactionDate:
-        transaction.transactionDate.toISOString(),
+      transactionDate: transaction.transactionDate.toISOString(),
       description: transaction.description,
 
       wallet: transaction.wallet
@@ -91,7 +129,7 @@ export default async function TransactionsPage() {
             type: transaction.category.type,
           }
         : null,
-    })
+    }),
   );
 
   const serializedWallets = wallets.map((wallet) => ({
@@ -106,11 +144,26 @@ export default async function TransactionsPage() {
     type: category.type,
   }));
 
+  const serializedSummary = {
+    income: Number(summaryData.income),
+    expense: Number(summaryData.expense),
+    transfer: Number(summaryData.transfer),
+    netCashflow: Number(summaryData.netCashflow),
+  };
+
   return (
     <TransactionsClient
       transactions={serializedTransactions}
       wallets={serializedWallets}
       categories={serializedCategories}
+      pagination={paginatedData.pagination}
+      summary={serializedSummary}
+      initialFilters={{
+        search: resolvedParams.search || "",
+        type: resolvedParams.type || "ALL",
+        categoryId: resolvedParams.categoryId || "ALL",
+        month: resolvedParams.month || "",
+      }}
     />
   );
 }

@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import {
   createTransaction,
+  getTransactionSummary,
   getUserTransactions,
+  getUserTransactionsPaginated,
 } from "@/services/transaction.service";
 import { TransactionType } from "@/generated/prisma/client";
 import { serializeBigInt } from "@/lib/serialize";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await auth();
 
@@ -19,6 +21,57 @@ export async function GET() {
         },
         { status: 401 }
       );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const pageParam = searchParams.get("page");
+    const limitParam = searchParams.get("limit");
+    const typeParam = searchParams.get("type") as TransactionType | null;
+    const walletId = searchParams.get("walletId") ?? undefined;
+    const categoryId = searchParams.get("categoryId") ?? undefined;
+    const search = searchParams.get("search") ?? undefined;
+    const monthParam = searchParams.get("month") ?? undefined;
+
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+    if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+      const [year, month] = monthParam.split("-").map(Number);
+      startDate = new Date(year, month - 1, 1);
+      endDate = new Date(year, month, 1);
+    }
+
+    if (pageParam !== null || limitParam !== null) {
+      const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+      const limit = limitParam
+        ? Math.min(100, Math.max(1, parseInt(limitParam, 10) || 15))
+        : 15;
+
+      const [result, summary] = await Promise.all([
+        getUserTransactionsPaginated(session.user.id, {
+          page,
+          limit,
+          type: typeParam ?? undefined,
+          walletId,
+          categoryId,
+          search,
+          startDate,
+          endDate,
+        }),
+        getTransactionSummary(session.user.id, {
+          walletId,
+          categoryId,
+          search,
+          startDate,
+          endDate,
+        }),
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        data: serializeBigInt(result.transactions),
+        pagination: result.pagination,
+        summary: serializeBigInt(summary),
+      });
     }
 
     const transactions = await getUserTransactions(session.user.id);

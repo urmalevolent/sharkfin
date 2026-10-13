@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function getObligationMetrics(
   userId: string,
+  prefetchedTotalBalance?: bigint,
 ) {
   const now = new Date();
 
@@ -39,20 +40,24 @@ export async function getObligationMetrics(
       BigInt(0),
     );
 
-  const totalBalanceResult =
-    await prisma.wallet.aggregate({
-      where: {
-        userId,
-        isActive: true,
-      },
-      _sum: {
-        balance: true,
-      },
-    });
+  let totalBalance = prefetchedTotalBalance;
 
-  const totalBalance =
-    totalBalanceResult._sum.balance ??
-    BigInt(0);
+  if (totalBalance === undefined) {
+    const totalBalanceResult =
+      await prisma.wallet.aggregate({
+        where: {
+          userId,
+          isActive: true,
+        },
+        _sum: {
+          balance: true,
+        },
+      });
+
+    totalBalance =
+      totalBalanceResult._sum.balance ??
+      BigInt(0);
+  }
 
   const availableBalance =
     totalBalance - totalUpcoming;

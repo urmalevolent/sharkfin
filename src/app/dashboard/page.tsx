@@ -234,12 +234,9 @@ export default async function DashboardPage() {
 
   const [
     financialData,
-    insightData,
     recentTransactions,
   ] = await Promise.all([
     getFinancialOverview(session.user.id),
-
-    getUserInsights(session.user.id),
 
     prisma.transaction.findMany({
       where: {
@@ -265,6 +262,11 @@ export default async function DashboardPage() {
       },
     }),
   ]);
+
+  const insightData = await getUserInsights(
+    session.user.id,
+    financialData,
+  );
 
   const healthStatus =
     financialData.financialHealth.overallStatus;

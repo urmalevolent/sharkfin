@@ -23,17 +23,159 @@ interface UpdateTransactionInput {
   description?: string;
 }
 
-export async function getUserTransactions(userId: string) {
+export interface GetUserTransactionsOptions {
+  page?: number;
+  limit?: number;
+  type?: TransactionType;
+  walletId?: string;
+  categoryId?: string;
+  search?: string;
+  startDate?: Date;
+  endDate?: Date;
+}
+
+export interface TransactionSummaryResult {
+  income: bigint;
+  expense: bigint;
+  transfer: bigint;
+  netCashflow: bigint;
+}
+
+function buildTransactionWhere(
+  userId: string,
+  options: GetUserTransactionsOptions = {},
+) {
+  const where: Record<string, unknown> = { userId };
+  if (options.type) where.type = options.type;
+  if (options.walletId) where.walletId = options.walletId;
+  if (options.categoryId) where.categoryId = options.categoryId;
+  if (options.startDate || options.endDate) {
+    where.transactionDate = {
+      ...(options.startDate ? { gte: options.startDate } : {}),
+      ...(options.endDate ? { lt: options.endDate } : {}),
+    };
+  }
+  if (options.search) {
+    where.OR = [
+      { description: { contains: options.search, mode: "insensitive" } },
+      { wallet: { name: { contains: options.search, mode: "insensitive" } } },
+      { fromWallet: { name: { contains: options.search, mode: "insensitive" } } },
+      { toWallet: { name: { contains: options.search, mode: "insensitive" } } },
+      { category: { name: { contains: options.search, mode: "insensitive" } } },
+    ];
+  }
+  return where;
+}
+
+export async function getUserTransactions(
+  userId: string,
+  options?: GetUserTransactionsOptions,
+) {
+  const page = options?.page ? Math.max(1, options.page) : undefined;
+  const limit = options?.limit
+    ? Math.min(100, Math.max(1, options.limit))
+    : undefined;
+  const skip = page && limit ? (page - 1) * limit : undefined;
+
+  const where = buildTransactionWhere(userId, options);
+
   return prisma.transaction.findMany({
-    where: { userId },
+    where,
     include: {
       wallet: true,
       category: true,
       fromWallet: true,
       toWallet: true,
     },
-    orderBy: { transactionDate: "desc" },
+    orderBy: [
+      { transactionDate: "desc" },
+      { id: "desc" }, // Deterministik tie-breaker
+    ],
+    ...(skip !== undefined && { skip }),
+    ...(limit !== undefined && { take: limit }),
   });
+}
+
+export async function getUserTransactionsPaginated(
+  userId: string,
+  options: GetUserTransactionsOptions = {},
+) {
+  const page = options.page ? Math.max(1, options.page) : 1;
+  const limit = options.limit
+    ? Math.min(100, Math.max(1, options.limit))
+    : 15;
+  const skip = (page - 1) * limit;
+
+  const where = buildTransactionWhere(userId, options);
+
+  const [transactions, totalCount] = await Promise.all([
+    prisma.transaction.findMany({
+      where,
+      include: {
+        wallet: true,
+        category: true,
+        fromWallet: true,
+        toWallet: true,
+      },
+      orderBy: [
+        { transactionDate: "desc" },
+        { id: "desc" },
+      ],
+      skip,
+      take: limit,
+    }),
+    prisma.transaction.count({ where }),
+  ]);
+
+  return {
+    transactions,
+    pagination: {
+      page,
+      limit,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit) || 1,
+      hasMore: page * limit < totalCount,
+    },
+  };
+}
+
+export async function getTransactionSummary(
+  userId: string,
+  options: Omit<GetUserTransactionsOptions, "page" | "limit"> = {},
+): Promise<TransactionSummaryResult> {
+  const where = buildTransactionWhere(userId, options);
+
+  const grouped = await prisma.transaction.groupBy({
+    by: ["type"],
+    where,
+    _sum: {
+      amount: true,
+    },
+  });
+
+  let income = BigInt(0);
+  let expense = BigInt(0);
+  let transfer = BigInt(0);
+
+  for (const item of grouped) {
+    const sum = item._sum.amount ?? BigInt(0);
+    if (item.type === "INCOME") {
+      income += sum;
+    } else if (item.type === "EXPENSE") {
+      expense += sum;
+    } else if (item.type === "TRANSFER") {
+      transfer += sum;
+    }
+  }
+
+  const netCashflow = income - expense;
+
+  return {
+    income,
+    expense,
+    transfer,
+    netCashflow,
+  };
 }
 
 export async function getTransactionById(

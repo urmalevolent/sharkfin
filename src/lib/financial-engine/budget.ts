@@ -38,15 +38,18 @@ export async function getBudgetMetrics(
       createdAt: "asc",
     },
   });
+  const categoryIds = budgets.map((b) => b.categoryId);
 
-  const metrics = await Promise.all(
-    budgets.map(async (budget) => {
-      const spentResult =
-        await prisma.transaction.aggregate({
+  const spentGrouped =
+    categoryIds.length > 0
+      ? await prisma.transaction.groupBy({
+          by: ["categoryId"],
           where: {
             userId,
             type: "EXPENSE",
-            categoryId: budget.categoryId,
+            categoryId: {
+              in: categoryIds,
+            },
             transactionDate: {
               gte: startDate,
               lt: endDate,
@@ -55,56 +58,67 @@ export async function getBudgetMetrics(
           _sum: {
             amount: true,
           },
-        });
+        })
+      : [];
 
-      const spent =
-        spentResult._sum.amount ??
-        BigInt(0);
+  const spentMap = new Map<string, bigint>();
+  for (const item of spentGrouped) {
+    if (item.categoryId) {
+      spentMap.set(
+        item.categoryId,
+        item._sum.amount ?? BigInt(0),
+      );
+    }
+  }
 
-      const remaining =
-        budget.amount - spent;
+  const metrics = budgets.map((budget) => {
+    const spent =
+      spentMap.get(budget.categoryId) ??
+      BigInt(0);
 
-      const usage =
-        budget.amount > BigInt(0)
-          ? Number(
-              (
-                (Number(spent) /
-                  Number(budget.amount)) *
-                100
-              ).toFixed(2),
-            )
-          : 0;
+    const remaining =
+      budget.amount - spent;
 
-      let status:
-        | "NORMAL"
-        | "WATCH"
-        | "WARNING"
-        | "EXCEEDED";
+    const usage =
+      budget.amount > BigInt(0)
+        ? Number(
+            (
+              (Number(spent) /
+                Number(budget.amount)) *
+              100
+            ).toFixed(2),
+          )
+        : 0;
 
-      if (usage >= 100) {
-        status = "EXCEEDED";
-      } else if (usage >= 85) {
-        status = "WARNING";
-      } else if (usage >= 70) {
-        status = "WATCH";
-      } else {
-        status = "NORMAL";
-      }
+    let status:
+      | "NORMAL"
+      | "WATCH"
+      | "WARNING"
+      | "EXCEEDED";
 
-      return {
-        id: budget.id,
-        categoryId: budget.categoryId,
-        categoryName: budget.category.name,
+    if (usage >= 100) {
+      status = "EXCEEDED";
+    } else if (usage >= 85) {
+      status = "WARNING";
+    } else if (usage >= 70) {
+      status = "WATCH";
+    } else {
+      status = "NORMAL";
+    }
 
-        budgetAmount: budget.amount,
-        spent,
-        remaining,
+    return {
+      id: budget.id,
+      categoryId: budget.categoryId,
+      categoryName: budget.category.name,
 
-        usage,
-        status,
-      };
-    }),
-  );
+      budgetAmount: budget.amount,
+      spent,
+      remaining,
+
+      usage,
+      status,
+    };
+  });
 
   const totalBudget = metrics.reduce(
     (total, item) =>

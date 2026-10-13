@@ -173,14 +173,18 @@ export async function getBudgets(
     targetYear
   );
 
-  const results = await Promise.all(
-    budgets.map(async (budget) => {
-      const expenseResult =
-        await prisma.transaction.aggregate({
+  const categoryIds = budgets.map((b) => b.categoryId);
+
+  const expenseGrouped =
+    categoryIds.length > 0
+      ? await prisma.transaction.groupBy({
+          by: ["categoryId"],
           where: {
             userId,
             type: "EXPENSE",
-            categoryId: budget.categoryId,
+            categoryId: {
+              in: categoryIds,
+            },
             transactionDate: {
               gte: startDate,
               lt: endDate,
@@ -189,49 +193,60 @@ export async function getBudgets(
           _sum: {
             amount: true,
           },
-        });
+        })
+      : [];
 
-      const spent =
-        expenseResult._sum.amount ??
-        BigInt(0);
-
-      const remaining =
-        budget.amount > spent
-          ? budget.amount - spent
-          : BigInt(0);
-
-      const usage = calculateUsage(
-        spent,
-        budget.amount
+  const spentMap = new Map<string, bigint>();
+  for (const item of expenseGrouped) {
+    if (item.categoryId) {
+      spentMap.set(
+        item.categoryId,
+        item._sum.amount ?? BigInt(0),
       );
+    }
+  }
 
-      const status =
-        calculateBudgetStatus(usage);
+  const results = budgets.map((budget) => {
+    const spent =
+      spentMap.get(budget.categoryId) ??
+      BigInt(0);
 
-      return {
-        id: budget.id,
+    const remaining =
+      budget.amount > spent
+        ? budget.amount - spent
+        : BigInt(0);
 
-        category: {
-          id: budget.category.id,
-          name: budget.category.name,
-          icon: budget.category.icon,
-        },
+    const usage = calculateUsage(
+      spent,
+      budget.amount,
+    );
 
-        month: budget.month,
-        year: budget.year,
+    const status =
+      calculateBudgetStatus(usage);
 
-        amount: budget.amount,
-        spent,
-        remaining,
+    return {
+      id: budget.id,
 
-        usage,
-        status,
+      category: {
+        id: budget.category.id,
+        name: budget.category.name,
+        icon: budget.category.icon,
+      },
 
-        createdAt: budget.createdAt,
-        updatedAt: budget.updatedAt,
-      };
-    })
-  );
+      month: budget.month,
+      year: budget.year,
+
+      amount: budget.amount,
+      spent,
+      remaining,
+
+      usage,
+      status,
+
+      createdAt: budget.createdAt,
+      updatedAt: budget.updatedAt,
+    };
+  });
 
   return results;
 }

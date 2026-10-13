@@ -5,8 +5,9 @@ import {
   ArrowLeftRight,
   ArrowUpRight,
   CalendarDays,
-  Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleDollarSign,
   Edit3,
   Filter,
@@ -16,7 +17,15 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 type Wallet = {
   id: string;
@@ -59,6 +68,25 @@ type TransactionsClientProps = {
   transactions: Transaction[];
   wallets: Wallet[];
   categories: Category[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+  summary: {
+    income: number;
+    expense: number;
+    transfer: number;
+    netCashflow: number;
+  };
+  initialFilters: {
+    search: string;
+    type: string;
+    categoryId: string;
+    month: string;
+  };
 };
 
 type FormType = "INCOME" | "EXPENSE";
@@ -87,14 +115,6 @@ function formatDateInput(date: string) {
   return `${year}-${month}-${day}`;
 }
 
-function getMonthValue(date: string) {
-  const parsed = new Date(date);
-
-  const year = parsed.getFullYear();
-  const month = String(parsed.getMonth() + 1).padStart(2, "0");
-
-  return `${year}-${month}`;
-}
 
 function formatMonthLabel(value: string) {
   if (!value) return "Semua Bulan";
@@ -263,7 +283,14 @@ export default function TransactionsClient({
   transactions,
   wallets,
   categories,
+  pagination,
+  summary,
+  initialFilters,
 }: TransactionsClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isPending, startTransition] = useTransition();
+
   const [formOpen, setFormOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -292,10 +319,19 @@ export default function TransactionsClient({
   );
   const [transferDescription, setTransferDescription] = useState("");
 
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("ALL");
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [monthFilter, setMonthFilter] = useState("");
+  const [search, setSearch] = useState(initialFilters.search);
+  const [prevInitialSearch, setPrevInitialSearch] = useState(
+    initialFilters.search,
+  );
+
+  if (prevInitialSearch !== initialFilters.search) {
+    setPrevInitialSearch(initialFilters.search);
+    setSearch(initialFilters.search);
+  }
+
+  const typeFilter = initialFilters.type;
+  const categoryFilter = initialFilters.categoryId;
+  const monthFilter = initialFilters.month;
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -304,60 +340,73 @@ export default function TransactionsClient({
     return categories.filter((category) => category.type === formType);
   }, [categories, formType]);
 
-  const summary = useMemo(() => {
-    return transactions.reduce(
-      (result, transaction) => {
-        const amount = Number(transaction.amount);
+  const updateFilters = useCallback(
+    (updates: {
+      search?: string;
+      type?: string;
+      categoryId?: string;
+      month?: string;
+      page?: number;
+    }) => {
+      const current = new URLSearchParams(window.location.search);
 
-        if (transaction.type === "INCOME") {
-          result.income += amount;
-        }
+      const nextSearch = updates.search !== undefined ? updates.search : search;
+      const nextType = updates.type !== undefined ? updates.type : typeFilter;
+      const nextCategory =
+        updates.categoryId !== undefined ? updates.categoryId : categoryFilter;
+      const nextMonth =
+        updates.month !== undefined ? updates.month : monthFilter;
+      const nextPage = updates.page !== undefined ? updates.page : 1;
 
-        if (transaction.type === "EXPENSE") {
-          result.expense += amount;
-        }
+      if (nextSearch.trim()) {
+        current.set("search", nextSearch.trim());
+      } else {
+        current.delete("search");
+      }
 
-        if (transaction.type === "TRANSFER") {
-          result.transfer += amount;
-        }
+      if (nextType && nextType !== "ALL") {
+        current.set("type", nextType);
+      } else {
+        current.delete("type");
+      }
 
-        return result;
-      },
-      {
-        income: 0,
-        expense: 0,
-        transfer: 0,
-      },
-    );
-  }, [transactions]);
+      if (nextCategory && nextCategory !== "ALL") {
+        current.set("categoryId", nextCategory);
+      } else {
+        current.delete("categoryId");
+      }
 
-  const netCashflow = summary.income - summary.expense;
+      if (nextMonth) {
+        current.set("month", nextMonth);
+      } else {
+        current.delete("month");
+      }
 
-  const filteredTransactions = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+      if (nextPage > 1) {
+        current.set("page", String(nextPage));
+      } else {
+        current.delete("page");
+      }
 
-    return transactions.filter((transaction) => {
-      const matchesSearch =
-        !keyword ||
-        transaction.description?.toLowerCase().includes(keyword) ||
-        transaction.wallet?.name.toLowerCase().includes(keyword) ||
-        transaction.fromWallet?.name.toLowerCase().includes(keyword) ||
-        transaction.toWallet?.name.toLowerCase().includes(keyword) ||
-        transaction.category?.name.toLowerCase().includes(keyword);
+      const queryString = current.toString();
+      const targetUrl = queryString ? `${pathname}?${queryString}` : pathname;
 
-      const matchesType =
-        typeFilter === "ALL" || transaction.type === typeFilter;
+      startTransition(() => {
+        router.push(targetUrl);
+      });
+    },
+    [router, pathname, search, typeFilter, categoryFilter, monthFilter],
+  );
 
-      const matchesCategory =
-        categoryFilter === "ALL" || transaction.category?.id === categoryFilter;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (search.trim() !== initialFilters.search.trim()) {
+        updateFilters({ search: search.trim(), page: 1 });
+      }
+    }, 400);
 
-      const matchesMonth =
-        !monthFilter ||
-        getMonthValue(transaction.transactionDate) === monthFilter;
-
-      return matchesSearch && matchesType && matchesCategory && matchesMonth;
-    });
-  }, [transactions, search, typeFilter, categoryFilter, monthFilter]);
+    return () => clearTimeout(timer);
+  }, [search, initialFilters.search, updateFilters]);
 
   const hasFilter =
     Boolean(search.trim()) ||
@@ -367,9 +416,25 @@ export default function TransactionsClient({
 
   function resetFilters() {
     setSearch("");
-    setTypeFilter("ALL");
-    setCategoryFilter("ALL");
-    setMonthFilter("");
+    startTransition(() => {
+      router.push(pathname);
+    });
+  }
+
+  function handleTypeChange(val: string) {
+    updateFilters({ type: val, page: 1 });
+  }
+
+  function handleCategoryChange(val: string) {
+    updateFilters({ categoryId: val, page: 1 });
+  }
+
+  function handleMonthChange(val: string) {
+    updateFilters({ month: val, page: 1 });
+  }
+
+  function handlePageChange(newPage: number) {
+    updateFilters({ page: newPage });
   }
 
   function resetForm() {
@@ -653,15 +718,15 @@ export default function TransactionsClient({
 
           <SummaryCard
             title="Net Cashflow"
-            amount={Math.abs(netCashflow)}
+            amount={Math.abs(summary.netCashflow)}
             icon={CircleDollarSign}
             iconClass={
-              netCashflow >= 0
+              summary.netCashflow >= 0
                 ? "bg-indigo-100 text-indigo-600"
                 : "bg-orange-100 text-orange-600"
             }
             description={
-              netCashflow >= 0
+              summary.netCashflow >= 0
                 ? "Pemasukan lebih besar dari pengeluaran"
                 : "Pengeluaran lebih besar dari pemasukan"
             }
@@ -677,7 +742,9 @@ export default function TransactionsClient({
               <input
                 type="text"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                }}
                 placeholder="Cari transaksi, kategori, wallet..."
                 className="h-11 w-full rounded-xl border bg-muted/30 pl-10 pr-10 text-sm outline-none transition focus:border-primary focus:bg-background focus:ring-2 focus:ring-primary/10"
               />
@@ -685,7 +752,10 @@ export default function TransactionsClient({
               {search && (
                 <button
                   type="button"
-                  onClick={() => setSearch("")}
+                  onClick={() => {
+                    setSearch("");
+                    updateFilters({ search: "", page: 1 });
+                  }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   aria-label="Hapus pencarian"
                 >
@@ -705,7 +775,7 @@ export default function TransactionsClient({
                 <div className="relative">
                   <select
                     value={typeFilter}
-                    onChange={(event) => setTypeFilter(event.target.value)}
+                    onChange={(event) => handleTypeChange(event.target.value)}
                     className="h-10 w-full appearance-none rounded-xl border bg-background px-3 pr-9 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
                   >
                     <option value="ALL">Semua Tipe</option>
@@ -721,7 +791,9 @@ export default function TransactionsClient({
                 <div className="relative">
                   <select
                     value={categoryFilter}
-                    onChange={(event) => setCategoryFilter(event.target.value)}
+                    onChange={(event) =>
+                      handleCategoryChange(event.target.value)
+                    }
                     className="h-10 w-full appearance-none rounded-xl border bg-background px-3 pr-9 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
                   >
                     <option value="ALL">Semua Kategori</option>
@@ -743,7 +815,7 @@ export default function TransactionsClient({
                   <input
                     type="month"
                     value={monthFilter}
-                    onChange={(event) => setMonthFilter(event.target.value)}
+                    onChange={(event) => handleMonthChange(event.target.value)}
                     className="h-10 w-full rounded-xl border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
                   />
                 </div>
@@ -769,7 +841,7 @@ export default function TransactionsClient({
               <h2 className="text-lg font-semibold">Riwayat Transaksi</h2>
 
               <p className="text-sm text-muted-foreground">
-                {filteredTransactions.length} transaksi
+                {pagination.totalCount} transaksi
                 {monthFilter ? ` pada ${formatMonthLabel(monthFilter)}` : ""}
               </p>
             </div>
@@ -781,130 +853,177 @@ export default function TransactionsClient({
             )}
           </div>
 
-          {filteredTransactions.length === 0 ? (
+          {pagination.totalCount === 0 ? (
             <EmptyState
               hasFilter={hasFilter}
               onReset={resetFilters}
               onAdd={openAddModal}
             />
           ) : (
-            <div className="space-y-3">
-              {filteredTransactions.map((transaction) => {
-                const Icon = getTransactionIcon(transaction.type);
+            <>
+              <div
+                className={`space-y-3 transition-opacity duration-200 ${
+                  isPending ? "opacity-60 pointer-events-none" : "opacity-100"
+                }`}
+              >
+                {transactions.map((transaction) => {
+                  const Icon = getTransactionIcon(transaction.type);
 
-                const styles = getTransactionStyles(transaction.type);
+                  const styles = getTransactionStyles(transaction.type);
 
-                const isEditable =
-                  transaction.type === "INCOME" ||
-                  transaction.type === "EXPENSE";
+                  const isEditable =
+                    transaction.type === "INCOME" ||
+                    transaction.type === "EXPENSE";
 
-                return (
-                  <article
-                    key={transaction.id}
-                    className="group rounded-2xl border bg-background p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5"
-                  >
-                    <div className="flex gap-3 sm:gap-4">
-                      <div
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${styles.icon}`}
-                      >
-                        <Icon className="h-5 w-5" />
-                      </div>
+                  return (
+                    <article
+                      key={transaction.id}
+                      className="group rounded-2xl border bg-background p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5"
+                    >
+                      <div className="flex gap-3 sm:gap-4">
+                        <div
+                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${styles.icon}`}
+                        >
+                          <Icon className="h-5 w-5" />
+                        </div>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="truncate text-sm font-semibold sm:text-base">
-                                {transaction.description ||
-                                  getTransactionLabel(transaction.type)}
-                              </h3>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="truncate text-sm font-semibold sm:text-base">
+                                  {transaction.description ||
+                                    getTransactionLabel(transaction.type)}
+                                </h3>
 
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 sm:text-[11px] ${styles.badge}`}
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 sm:text-[11px] ${styles.badge}`}
+                                >
+                                  {getTransactionLabel(transaction.type)}
+                                </span>
+                              </div>
+
+                              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                {transaction.type === "TRANSFER" ? (
+                                  <>
+                                    <span>
+                                      {transaction.fromWallet?.name ?? "-"}
+                                    </span>
+
+                                    <ArrowLeftRight className="h-3 w-3" />
+
+                                    <span>
+                                      {transaction.toWallet?.name ?? "-"}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>
+                                      {transaction.category?.name ??
+                                        "Tanpa kategori"}
+                                    </span>
+
+                                    <span>•</span>
+
+                                    <span>
+                                      {transaction.wallet?.name ?? "Tanpa wallet"}
+                                    </span>
+                                  </>
+                                )}
+
+                                <span>•</span>
+
+                                <span>
+                                  {formatDate(transaction.transactionDate)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
+                              <p
+                                className={`text-base font-bold sm:text-lg ${styles.amount}`}
                               >
-                                {getTransactionLabel(transaction.type)}
-                              </span>
-                            </div>
+                                {transaction.type === "INCOME"
+                                  ? "+"
+                                  : transaction.type === "EXPENSE"
+                                    ? "-"
+                                    : ""}
+                                {formatRupiah(transaction.amount)}
+                              </p>
 
-                            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                              {transaction.type === "TRANSFER" ? (
-                                <>
-                                  <span>
-                                    {transaction.fromWallet?.name ?? "-"}
-                                  </span>
+                              <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+                                {isEditable && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditModal(transaction)}
+                                    className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                                    title="Edit transaksi"
+                                    aria-label="Edit transaksi"
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                  </button>
+                                )}
 
-                                  <ArrowLeftRight className="h-3 w-3" />
-
-                                  <span>
-                                    {transaction.toWallet?.name ?? "-"}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <span>
-                                    {transaction.category?.name ??
-                                      "Tanpa kategori"}
-                                  </span>
-
-                                  <span>•</span>
-
-                                  <span>
-                                    {transaction.wallet?.name ?? "Tanpa wallet"}
-                                  </span>
-                                </>
-                              )}
-
-                              <span>•</span>
-
-                              <span>
-                                {formatDate(transaction.transactionDate)}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
-                            <p
-                              className={`text-base font-bold sm:text-lg ${styles.amount}`}
-                            >
-                              {transaction.type === "INCOME"
-                                ? "+"
-                                : transaction.type === "EXPENSE"
-                                  ? "-"
-                                  : ""}
-                              {formatRupiah(transaction.amount)}
-                            </p>
-
-                            <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
-                              {isEditable && (
                                 <button
                                   type="button"
-                                  onClick={() => openEditModal(transaction)}
-                                  className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                                  title="Edit transaksi"
-                                  aria-label="Edit transaksi"
+                                  onClick={() => openDeleteModal(transaction)}
+                                  className="rounded-lg p-2 text-muted-foreground transition hover:bg-rose-50 hover:text-rose-600"
+                                  title="Hapus transaksi"
+                                  aria-label="Hapus transaksi"
                                 >
-                                  <Edit3 className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4" />
                                 </button>
-                              )}
-
-                              <button
-                                type="button"
-                                onClick={() => openDeleteModal(transaction)}
-                                className="rounded-lg p-2 text-muted-foreground transition hover:bg-rose-50 hover:text-rose-600"
-                                title="Hapus transaksi"
-                                aria-label="Hapus transaksi"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              {pagination.totalPages > 1 && (
+                <div className="mt-6 flex flex-col items-center justify-between gap-4 border-t pt-4 sm:flex-row">
+                  <p className="text-xs text-muted-foreground">
+                    Menampilkan {(pagination.page - 1) * pagination.limit + 1} -{" "}
+                    {Math.min(
+                      pagination.page * pagination.limit,
+                      pagination.totalCount,
+                    )}{" "}
+                    dari {pagination.totalCount} transaksi
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handlePageChange(pagination.page - 1)}
+                      disabled={pagination.page <= 1 || isPending}
+                      className="inline-flex items-center gap-1 rounded-xl border bg-background px-3 py-1.5 text-xs font-medium shadow-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                      Sebelumnya
+                    </button>
+
+                    <span className="px-2 text-xs font-medium text-muted-foreground">
+                      Halaman {pagination.page} dari {pagination.totalPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePageChange(pagination.page + 1)}
+                      disabled={
+                        pagination.page >= pagination.totalPages || isPending
+                      }
+                      className="inline-flex items-center gap-1 rounded-xl border bg-background px-3 py-1.5 text-xs font-medium shadow-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Berikutnya
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>

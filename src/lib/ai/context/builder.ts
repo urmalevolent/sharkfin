@@ -19,13 +19,8 @@ export async function buildAIContext(
   userId: string,
   user: UserContext,
 ): Promise<AIContext> {
-  const [
-    financialData,
-    insightData,
-  ] = await Promise.all([
-    getFinancialOverview(userId),
-    getUserInsights(userId),
-  ]);
+  const financialData = await getFinancialOverview(userId);
+  const insightData = await getUserInsights(userId, financialData);
 
   const spendingCategories =
     financialData.spending.byCategory

@@ -7,19 +7,23 @@ import { getFinancialOverview } from "@/services/financial-engine.service";
 
 export async function getUserInsights(
   userId: string,
+  prefetchedFinancialData?: Awaited<
+    ReturnType<typeof getFinancialOverview>
+  >,
 ) {
   /*
    * ==========================================
    * 1. Ambil Financial Overview
    * ==========================================
    *
-   * Financial Engine tetap menjadi sumber
-   * utama data finansial.
+   * Gunakan prefetched data jika sudah ada untuk
+   * mencegah pemanggilan ganda getFinancialOverview.
    */
   const financialData =
-    await getFinancialOverview(
+    prefetchedFinancialData ??
+    (await getFinancialOverview(
       userId,
-    );
+    ));
 
   /*
    * ==========================================
