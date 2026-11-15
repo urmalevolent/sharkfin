@@ -1,6 +1,8 @@
+
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -147,18 +149,31 @@ export default function Sidebar({
             {/* Logo */}
             <div
               className="
-                flex h-10 w-10 shrink-0
+                flex h-12 w-12 shrink-0
                 items-center justify-center
+                overflow-hidden
                 rounded-xl
-                bg-[#168CFF]
-                shadow-lg shadow-blue-950/30
-                transition-transform duration-200
+                bg-gradient-to-br
+                from-violet-600
+                via-purple-600
+                to-rose-500
+                p-0.5
+                shadow-lg shadow-purple-950/40
+                transition-all duration-200
                 group-hover:scale-105
               "
             >
-              <span className="text-lg">
-                🦈
-              </span>
+              <Image
+                src="/fin-logo.png"
+                alt="SharkFin Logo"
+                width={48}
+                height={48}
+                priority
+                className="
+                  h-full w-full
+                  object-contain
+                "
+              />
             </div>
 
             {/* Brand */}
@@ -191,9 +206,9 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* ======================================
+        {/* ========================================
             NAVIGATION
-        ====================================== */}
+        ======================================== */}
         <nav className="flex-1 overflow-y-auto px-3 py-5 scrollbar-thin">
           {/* Main Menu */}
           <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
